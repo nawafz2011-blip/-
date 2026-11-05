@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>محمّل الفيديوهات</title>
+  <meta name="description" content="حمّل فيديوهات يوتيوب وتيك توك وغيرها بجودة لين 8K أو صوت MP3">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <h1>محمّل الفيديوهات</h1>
+      <p>الصق رابط الفيديو من يوتيوب أو تيك توك أو إنستقرام أو تويتر وغيرها، واختر الجودة.</p>
+    </header>
+
+    <form id="form" class="search" autocomplete="off">
+      <input id="url" type="url" inputmode="url" dir="ltr" required
+             placeholder="https://www.youtube.com/watch?v=..." aria-label="رابط الفيديو">
+      <button id="paste" type="button" class="ghost" title="لصق">لصق</button>
+      <button id="go" type="submit">ابحث</button>
+    </form>
+
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+
+    <section id="result" class="card" hidden>
+      <div class="media">
+        <img id="thumb" alt="" referrerpolicy="no-referrer">
+        <div class="meta">
+          <h2 id="title"></h2>
+          <p id="sub" class="muted"></p>
+        </div>
+      </div>
+      <h3>اختر الجودة</h3>
+      <div id="options" class="options"></div>
+      <p class="muted small">الجودات العالية مثل <bdi>4K</bdi> و<bdi>8K</bdi> تاخذ وقت عشان السيرفر يحمّلها ويدمج الصوت قبل ما تبدأ عندك. لا تسكّر الصفحة.</p>
+    </section>
+
+    <section class="sites">
+      <span>يوتيوب</span><span>تيك توك</span><span>إنستقرام</span><span>تويتر / X</span><span>فيسبوك</span><span>ساوند كلاود</span><span>+ مئات المواقع</span>
+    </section>
+
+    <footer class="muted small">
+      استخدم الموقع لتحميل المحتوى اللي تملكه أو المسموح بتحميله فقط، واحترم حقوق أصحاب المحتوى.
+    </footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
