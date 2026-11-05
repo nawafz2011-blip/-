@@ -1,0 +1,55 @@
+name: بناء تطبيق الأندرويد
+
+on:
+  push:
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: بناء ملف APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease -PversionCode=${{ github.run_number }} --stacktrace
+
+      - name: تجهيز الملف
+        run: cp app/build/outputs/apk/release/app-release.apk ../Mohammel.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mohammel-apk
+          path: Mohammel.apk
+
+      - name: نشر النسخة في Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-v${{ github.run_number }}
+          name: محمّل للأندرويد - نسخة 1.0.${{ github.run_number }}
+          body: |
+            حمّل ملف **Mohammel.apk** من تحت وثبّته على جوالك.
+          files: Mohammel.apk
+          target_commitish: ${{ github.sha }}
+          make_latest: "true"
