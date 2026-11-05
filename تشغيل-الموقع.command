@@ -50,5 +50,9 @@ echo "الموقع شغال على: http://localhost:$PORT"
 echo "خل هذي النافذة مفتوحة طول ما تستخدم الموقع. لإيقافه سكّر النافذة."
 echo
 
-(sleep 2 && open "http://localhost:$PORT") &
+# نفتح المتصفح بعد ما يجهز السيرفر
+(for _ in $(seq 1 60); do
+   curl -s -o /dev/null "http://127.0.0.1:$PORT/api/health" && { open "http://localhost:$PORT"; exit 0; }
+   sleep 1
+ done) &
 exec .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port "$PORT"
