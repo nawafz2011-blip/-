@@ -45,8 +45,20 @@ fi
 PORT=8000
 while lsof -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; do PORT=$((PORT + 1)); done
 
+# عنوان الماك في شبكة الواي فاي، عشان تفتح الموقع من الجوال
+LAN_IP="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null)"
+
 echo
-echo "الموقع شغال على: http://localhost:$PORT"
+echo "الموقع شغال على الماك:  http://localhost:$PORT"
+if [ -n "$LAN_IP" ]; then
+  echo
+  echo "من الجوال (لازم يكون على نفس الواي فاي):"
+  echo "    http://$LAN_IP:$PORT"
+  echo
+  echo "إذا طلعت لك رسالة تسأل تسمح باتصالات Python، اضغط Allow (سماح)."
+  echo "تنبيه: أي أحد على نفس الواي فاي يقدر يفتح الموقع. لا تشغّله على واي فاي عام."
+fi
+echo
 echo "خل هذي النافذة مفتوحة طول ما تستخدم الموقع. لإيقافه سكّر النافذة."
 echo
 
@@ -55,4 +67,4 @@ echo
    curl -s -o /dev/null "http://127.0.0.1:$PORT/api/health" && { open "http://localhost:$PORT"; exit 0; }
    sleep 1
  done) &
-exec .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port "$PORT"
+exec .venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port "$PORT"
