@@ -48,7 +48,9 @@ function render(info, url) {
     const strong = document.createElement("strong");
     strong.textContent = opt.label;
     const span = document.createElement("span");
-    span.textContent = opt.type === "audio" ? "MP3" : ["MP4", fmtSize(opt.approx_size)].filter(Boolean).join(" · ");
+    const hi = opt.type === "video" && Number(opt.id) >= 1440;
+    span.textContent = opt.type === "audio" ? "MP3"
+      : ["MP4", fmtSize(opt.approx_size), hi ? "يشتغل على VLC" : ""].filter(Boolean).join(" · ");
     a.append(strong, span);
     a.addEventListener("click", () => setStatus("جاري تجهيز الملف على السيرفر... التحميل بيبدأ تلقائياً."));
     box.append(a);

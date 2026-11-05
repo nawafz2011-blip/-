@@ -200,13 +200,15 @@ def _download(url: str, quality: str, workdir: str) -> Path:
         ]
     else:
         if quality == "best":
-            fmt = "bv*+ba/b"
+            res = None
         elif quality.isdigit():
-            h = int(quality)
-            fmt = f"bv*[height<={h}]+ba/b[height<={h}]/bv*+ba/b"
+            res = int(quality)
         else:
             raise HTTPException(400, "الجودة غير صحيحة.")
-        opts["format"] = fmt
+        opts["format"] = "bv*+ba/b"
+        # نفضّل H.264 + AAC لأنها تشتغل على كل الأجهزة (QuickTime والآيفون والويندوز).
+        # 4K و8K في يوتيوب ما لها H.264 فتنزل VP9/AV1.
+        opts["format_sort"] = ([f"res:{res}"] if res else ["res"]) + ["vcodec:h264", "acodec:aac", "ext:mp4:m4a"]
         # mp4 يشتغل على كل الأجهزة. الجودات العالية (4K/8K) غالباً VP9/AV1 وتنحط داخل mp4 عادي
         opts["merge_output_format"] = "mp4"
 
