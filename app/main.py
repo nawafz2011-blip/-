@@ -29,6 +29,21 @@ RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "20"))
 COOKIES_FILE = os.getenv("COOKIES_FILE")  # اختياري: ملف كوكيز لتجاوز حظر يوتيوب
 PROXY = os.getenv("YTDLP_PROXY")  # اختياري: بروكسي
 
+
+def _find_ffmpeg() -> str | None:
+    """يستخدم ffmpeg المثبت في الجهاز، وإذا ما لقاه يستخدم النسخة اللي تجي مع imageio-ffmpeg."""
+    if shutil.which("ffmpeg"):
+        return None  # yt-dlp بيلقاه لحاله
+    try:
+        import imageio_ffmpeg
+
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:  # noqa: BLE001
+        return None
+
+
+FFMPEG_LOCATION = _find_ffmpeg()
+
 QUALITY_LABELS = {
     4320: "8K",
     2160: "4K",
@@ -84,6 +99,8 @@ def _base_opts() -> dict:
         opts["cookiefile"] = COOKIES_FILE
     if PROXY:
         opts["proxy"] = PROXY
+    if FFMPEG_LOCATION:
+        opts["ffmpeg_location"] = FFMPEG_LOCATION
     return opts
 
 
@@ -233,7 +250,7 @@ async def download(request: Request, url: str = Query(...), quality: str = Query
 
 @app.get("/api/health")
 async def health() -> dict:
-    return {"ok": True, "yt_dlp": yt_dlp.version.__version__, "ffmpeg": bool(shutil.which("ffmpeg"))}
+    return {"ok": True, "yt_dlp": yt_dlp.version.__version__, "ffmpeg": bool(shutil.which("ffmpeg") or FFMPEG_LOCATION)}
 
 
 app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
