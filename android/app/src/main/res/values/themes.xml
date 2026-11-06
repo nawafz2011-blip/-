@@ -10,6 +10,11 @@
         <item name="android:colorBackground">@color/bg</item>
         <item name="colorSurface">@color/card</item>
         <item name="colorSurfaceContainer">@color/card</item>
+        <item name="colorSurfaceContainerLowest">@color/card</item>
+        <item name="colorSurfaceContainerLow">@color/card</item>
+        <item name="colorSurfaceContainerHigh">@color/card</item>
+        <item name="colorSurfaceContainerHighest">@color/card</item>
+        <item name="elevationOverlayEnabled">false</item>
         <item name="colorOnSurface">@color/text</item>
         <item name="colorOnSurfaceVariant">@color/muted</item>
         <item name="colorOutline">@color/line</item>

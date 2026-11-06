@@ -16,7 +16,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
-import com.google.android.material.progressindicator.LinearProgressIndicator
+import android.widget.ProgressBar
 import com.nawaf.mohammel.databinding.ActivityMainBinding
 
 /** الأفعال اللي تحتاجها الشاشة من الـ Activity. */
@@ -68,7 +68,7 @@ class MainUi(
         b.clearHistory.setOnClickListener { actions.clearHistory() }
 
         b.bottomNav.setOnItemSelectedListener { item ->
-            showTab(item.itemId == R.id.nav_history)
+            applyTab(item.itemId == R.id.nav_history)
             true
         }
 
@@ -104,12 +104,17 @@ class MainUi(
         b.batchGo.setOnClickListener { actions.enqueue(batchUrls.map { presetSpec(it, b.batchQuality) }) }
     }
 
+    /** يغيّر التبويب من الكود (يحدّث الشريط السفلي والمحتوى). */
     fun showTab(history: Boolean) {
+        val id = if (history) R.id.nav_history else R.id.nav_download
+        if (b.bottomNav.selectedItemId != id) b.bottomNav.selectedItemId = id // يستدعي applyTab
+        applyTab(history)
+    }
+
+    private fun applyTab(history: Boolean) {
         b.downloadView.isVisible = !history
         b.historyView.isVisible = history
         b.scroll.scrollTo(0, 0)
-        val id = if (history) R.id.nav_history else R.id.nav_download
-        if (b.bottomNav.selectedItemId != id) b.bottomNav.selectedItemId = id
     }
 
     private fun togglePanel(panel: View) {
@@ -348,17 +353,12 @@ class MainUi(
             })
         )
 
-        val bar = v.findViewById<LinearProgressIndicator>(R.id.jobBar)
+        val bar = v.findViewById<ProgressBar>(R.id.jobBar)
         val running = j.status == JobStatus.RUNNING
-        val showBar = j.active || j.status == JobStatus.DONE
-        val indeterminate = j.status == JobStatus.QUEUED || (running && (j.progress < 0 || j.progress >= 100))
-        if (bar.isIndeterminate != indeterminate) {
-            bar.isVisible = false // لازم نخفيه قبل ما نغيّر النوع
-            bar.isIndeterminate = indeterminate
-        }
-        bar.isVisible = showBar
-        if (!indeterminate) bar.setProgressCompat(if (j.status == JobStatus.DONE) 100 else j.progress.toInt(), false)
-        bar.setIndicatorColor(color(if (j.status == JobStatus.DONE) R.color.ok else R.color.accent))
+        bar.isVisible = j.active || j.status == JobStatus.DONE
+        bar.isIndeterminate = j.status == JobStatus.QUEUED || (running && (j.progress < 0 || j.progress >= 100))
+        bar.progress = if (j.status == JobStatus.DONE) 100 else j.progress.toInt().coerceIn(0, 100)
+        bar.progressTintList = ColorStateList.valueOf(color(if (j.status == JobStatus.DONE) R.color.ok else R.color.accent))
 
         val actionsBox = v.findViewById<LinearLayout>(R.id.jobActions)
         val key = j.status.name
@@ -397,7 +397,7 @@ class MainUi(
             loadImage(v.findViewById(R.id.jobThumb), h.spec.thumbnail)
             v.findViewById<TextView>(R.id.jobTitle).text = h.title
             v.findViewById<TextView>(R.id.jobLabel).text = iso(h.label)
-            v.findViewById<LinearProgressIndicator>(R.id.jobBar).isVisible = false
+            v.findViewById<ProgressBar>(R.id.jobBar).isVisible = false
             v.findViewById<TextView>(R.id.jobMeta).text = iso(
                 listOf(
                     DateUtils.getRelativeTimeSpanString(h.date, now, DateUtils.MINUTE_IN_MILLIS).toString(),
