@@ -5,4 +5,7 @@
     <color name="text">#141824</color>
     <color name="muted">#5D6478</color>
     <color name="icon_bg">#E5383B</color>
+    <color name="chip">#F0F2F8</color>
+    <color name="line">#E3E6EF</color>
+    <color name="ok">#1F9D55</color>
 </resources>

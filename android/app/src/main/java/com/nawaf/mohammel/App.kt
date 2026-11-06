@@ -8,6 +8,7 @@ import kotlin.concurrent.thread
 class App : Application() {
     override fun onCreate() {
         super.onCreate()
+        History.init(this)
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL_ID, "التحميلات", NotificationManager.IMPORTANCE_LOW)
         )

@@ -1,224 +1,483 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg"
-    android:fillViewport="true"
-    android:layoutDirection="rtl">
+    android:layoutDirection="rtl"
+    android:orientation="vertical">
 
+    <!-- الشريط العلوي -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:layout_height="64dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <ImageView
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:background="@drawable/logo_bg"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_launcher_foreground" />
 
         <TextView
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:gravity="center"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
             android:text="@string/app_name"
             android:textColor="@color/text"
-            android:textSize="34sp"
+            android:textSize="22sp"
             android:textStyle="bold" />
 
-        <TextView
-            android:layout_width="match_parent"
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/tabs"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:layout_marginBottom="20dp"
-            android:gravity="center"
-            android:text="الصق رابط من يوتيوب أو تيك توك أو إنستقرام أو غيرها، أو شارك الفيديو للتطبيق مباشرة."
-            android:textColor="@color/muted"
-            android:textSize="15sp" />
+            app:checkedButton="@id/tabDownload"
+            app:selectionRequired="true"
+            app:singleSelection="true">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/updateBanner"
-            style="@style/Widget.Material3.Button.TonalButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            android:text="فيه نسخة جديدة من التطبيق، اضغط للتحديث"
-            android:visibility="gone" />
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/urlLayout"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="رابط الفيديو"
-            app:endIconMode="clear_text">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/urlInput"
-                android:layout_width="match_parent"
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/tabDownload"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:imeOptions="actionSearch"
-                android:inputType="textUri"
-                android:layoutDirection="ltr"
-                android:singleLine="true"
-                android:textDirection="ltr" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="horizontal">
+                android:text="تحميل" />
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/searchBtn"
-                android:layout_width="0dp"
-                android:layout_height="56dp"
-                android:layout_weight="2"
-                android:text="ابحث"
-                android:textSize="16sp" />
+                android:id="@+id/tabHistory"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="السجل" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+    </LinearLayout>
 
-            <Space
-                android:layout_width="8dp"
-                android:layout_height="1dp" />
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/scroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/pasteBtn"
-                style="@style/Widget.Material3.Button.TonalButton"
-                android:layout_width="0dp"
-                android:layout_height="56dp"
-                android:layout_weight="1"
-                android:text="لصق"
-                android:textSize="16sp" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/status"
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:gravity="center"
-            android:textColor="@color/muted"
-            android:textSize="15sp" />
+            android:layout_height="wrap_content">
 
-        <!-- التحميل الجاري -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/progressCard"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:visibility="gone"
-            app:cardBackgroundColor="@color/card">
-
+            <!-- ==================== التحميل ==================== -->
             <LinearLayout
+                android:id="@+id/downloadView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="16dp">
 
                 <TextView
-                    android:id="@+id/progressTitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:maxLines="2"
-                    android:textColor="@color/text"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:layout_marginBottom="14dp"
+                    android:gravity="center"
+                    android:text="الصق رابط أو أكثر (كل رابط في سطر)، أو رابط قائمة تشغيل، أو شارك الفيديو للتطبيق مباشرة."
+                    android:textColor="@color/muted"
+                    android:textSize="14sp" />
 
-                <com.google.android.material.progressindicator.LinearProgressIndicator
-                    android:id="@+id/progressBar"
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/updateBanner"
+                    style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:indeterminate="true"
-                    android:max="100"
-                    app:trackCornerRadius="4dp" />
+                    android:layout_marginBottom="12dp"
+                    android:text="فيه نسخة جديدة من التطبيق، اضغط للتحديث"
+                    android:visibility="gone" />
 
-                <TextView
-                    android:id="@+id/progressText"
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="رابط الفيديو"
+                    app:endIconMode="clear_text">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/urlInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textUri|textMultiLine"
+                        android:layoutDirection="ltr"
+                        android:maxLines="5"
+                        android:textDirection="ltr" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:textColor="@color/muted" />
+                    android:orientation="horizontal">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/cancelBtn"
-                    style="@style/Widget.Material3.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="إلغاء" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/searchBtn"
+                        android:layout_width="0dp"
+                        android:layout_height="56dp"
+                        android:layout_weight="2"
+                        android:text="ابحث"
+                        android:textSize="16sp" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/openBtn"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="افتح الملف"
-                    android:visibility="gone" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+                    <Space
+                        android:layout_width="8dp"
+                        android:layout_height="1dp" />
 
-        <!-- معلومات الفيديو والجودات -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/resultCard"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:visibility="gone"
-            app:cardBackgroundColor="@color/card">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <ImageView
-                    android:id="@+id/thumb"
-                    android:layout_width="match_parent"
-                    android:layout_height="190dp"
-                    android:background="@color/bg"
-                    android:contentDescription="صورة الفيديو"
-                    android:scaleType="centerCrop" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/pasteBtn"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="0dp"
+                        android:layout_height="56dp"
+                        android:layout_weight="1"
+                        android:text="لصق"
+                        android:textSize="16sp" />
+                </LinearLayout>
 
                 <TextView
-                    android:id="@+id/title"
+                    android:id="@+id/status"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:textColor="@color/text"
-                    android:textSize="17sp"
-                    android:textStyle="bold" />
+                    android:gravity="center"
+                    android:textColor="@color/muted"
+                    android:textSize="15sp" />
 
-                <TextView
-                    android:id="@+id/subtitle"
+                <!-- فيديو واحد -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/singleCard"
+                    style="@style/Card"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <ImageView
+                            android:id="@+id/thumb"
+                            android:layout_width="match_parent"
+                            android:layout_height="190dp"
+                            android:background="@color/chip"
+                            android:contentDescription="صورة الفيديو"
+                            android:scaleType="centerCrop" />
+
+                        <TextView
+                            android:id="@+id/title"
+                            style="@style/TitleText"
+                            android:layout_marginTop="12dp" />
+
+                        <TextView
+                            android:id="@+id/subtitle"
+                            style="@style/MutedText" />
+
+                        <TextView
+                            style="@style/SectionText"
+                            android:text="اختر الجودة" />
+
+                        <LinearLayout
+                            android:id="@+id/options"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/extrasToggle"
+                            style="@style/Widget.Material3.Button.TextButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="▾ خيارات إضافية: قص، ترجمة، صورة الغلاف" />
+
+                        <LinearLayout
+                            android:id="@+id/extras"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:visibility="gone">
+
+                            <TextView
+                                style="@style/SectionText"
+                                android:text="✂️ قص الفيديو" />
+
+                            <TextView
+                                style="@style/MutedText"
+                                android:text="اكتب البداية والنهاية (مثل 1:20)، وبعدها اختر الجودة من فوق. اتركها فاضية للفيديو كامل." />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:orientation="horizontal">
+
+                                <com.google.android.material.textfield.TextInputLayout
+                                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:hint="من">
+
+                                    <com.google.android.material.textfield.TextInputEditText
+                                        android:id="@+id/trimStart"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:digits="0123456789:٠١٢٣٤٥٦٧٨٩"
+                                        android:inputType="time"
+                                        android:textDirection="ltr" />
+                                </com.google.android.material.textfield.TextInputLayout>
+
+                                <Space
+                                    android:layout_width="8dp"
+                                    android:layout_height="1dp" />
+
+                                <com.google.android.material.textfield.TextInputLayout
+                                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:hint="إلى">
+
+                                    <com.google.android.material.textfield.TextInputEditText
+                                        android:id="@+id/trimEnd"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:digits="0123456789:٠١٢٣٤٥٦٧٨٩"
+                                        android:inputType="time"
+                                        android:textDirection="ltr" />
+                                </com.google.android.material.textfield.TextInputLayout>
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:id="@+id/subsBlock"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/SectionText"
+                                    android:text="💬 الترجمة" />
+
+                                <Spinner
+                                    android:id="@+id/subsLang"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="48dp" />
+
+                                <com.google.android.material.button.MaterialButton
+                                    android:id="@+id/subsBtn"
+                                    style="@style/Widget.Material3.Button.TonalButton"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="حمّل الترجمة (SRT)" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/noSubs"
+                                style="@style/MutedText"
+                                android:layout_marginTop="12dp"
+                                android:text="ما فيه ترجمة لهذا الفيديو."
+                                android:visibility="gone" />
+
+                            <TextView
+                                style="@style/SectionText"
+                                android:text="🖼️ صورة الغلاف" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/thumbBtn"
+                                style="@style/Widget.Material3.Button.TonalButton"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="حمّل صورة الغلاف (JPG)" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- قائمة تشغيل -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/playlistCard"
+                    style="@style/Card"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:id="@+id/plTitle"
+                            style="@style/TitleText" />
+
+                        <TextView
+                            android:id="@+id/plSub"
+                            style="@style/MutedText" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <com.google.android.material.checkbox.MaterialCheckBox
+                                android:id="@+id/plAll"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:checked="true"
+                                android:text="الكل" />
+
+                            <Spinner
+                                android:id="@+id/plQuality"
+                                android:layout_width="0dp"
+                                android:layout_height="48dp"
+                                android:layout_weight="1" />
+                        </LinearLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/plGo"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="حمّل المحدد" />
+
+                        <LinearLayout
+                            android:id="@+id/plList"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:orientation="vertical" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- كذا رابط -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/batchCard"
+                    style="@style/Card"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:id="@+id/batchTitle"
+                            style="@style/TitleText" />
+
+                        <TextView
+                            style="@style/MutedText"
+                            android:text="بتنزل ورا بعض، وتقدر تتابعها تحت." />
+
+                        <Spinner
+                            android:id="@+id/batchQuality"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:layout_marginTop="8dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/batchGo"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="حمّل الكل" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- التحميلات -->
+                <LinearLayout
+                    android:id="@+id/queueHeader"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:textColor="@color/muted" />
+                    android:layout_marginTop="20dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:layout_marginBottom="6dp"
-                    android:text="اختر الجودة"
-                    android:textColor="@color/text"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="التحميلات"
+                        android:textColor="@color/text"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/clearDone"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="مسح المنتهية" />
+                </LinearLayout>
 
                 <LinearLayout
-                    android:id="@+id/options"
+                    android:id="@+id/jobsList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+
+                <TextView
+                    android:id="@+id/footer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:gravity="center"
+                    android:textColor="@color/muted"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- ==================== السجل ==================== -->
+            <LinearLayout
+                android:id="@+id/historyView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="سجل التحميلات"
+                        android:textColor="@color/text"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/clearHistory"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="مسح السجل" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/historyEmpty"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:paddingTop="48dp"
+                    android:text="لسا ما حمّلت شيء. أول ما تحمّل، بيطلع هنا."
+                    android:textColor="@color/muted" />
+
+                <LinearLayout
+                    android:id="@+id/historyList"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical" />
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <TextView
-            android:id="@+id/footer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:gravity="center"
-            android:textColor="@color/muted"
-            android:textSize="12sp" />
-    </LinearLayout>
-</ScrollView>
+        </FrameLayout>
+    </androidx.core.widget.NestedScrollView>
+</LinearLayout>

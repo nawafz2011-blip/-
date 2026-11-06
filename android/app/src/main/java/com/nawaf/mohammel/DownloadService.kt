@@ -15,82 +15,109 @@ import androidx.core.app.ServiceCompat
 import com.yausername.youtubedl_android.YoutubeDL
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.Job as CoJob
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * التحميل يشتغل هنا عشان يكمل حتى لو طلعت من التطبيق أو قفلت الشاشة.
+ * يشغّل طابور التحميلات واحد ورا الثاني، ويكمل حتى لو طلعت من التطبيق أو قفلت الشاشة.
  */
 class DownloadService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var job: Job? = null
-    private var canceled = false
+    private var worker: CoJob? = null
     private var lastNotify = 0L
+    private var doneCount = 0
+    private var failCount = 0
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_CANCEL) {
-            canceled = true
-            YoutubeDL.getInstance().destroyProcessById(PROCESS_ID)
+            intent.getStringExtra(EXTRA_ID)?.let { cancelJob(it) }
             return START_NOT_STICKY
         }
-        if (job?.isActive == true) return START_NOT_STICKY
-
-        val url = intent?.getStringExtra(EXTRA_URL) ?: return stop()
-        val title = intent.getStringExtra(EXTRA_TITLE) ?: "فيديو"
-        val option = QualityOption(
-            id = intent.getStringExtra(EXTRA_QUALITY) ?: "best",
-            label = intent.getStringExtra(EXTRA_LABEL) ?: "",
-            detail = "",
-            isAudio = intent.getBooleanExtra(EXTRA_AUDIO, false),
-        )
+        if (intent?.action == ACTION_CANCEL_ALL) {
+            JobQueue.jobs.value.filter { it.active }.forEach { cancelJob(it.id) }
+            return START_NOT_STICKY
+        }
+        if (worker?.isActive == true) return START_NOT_STICKY
 
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC else 0
-        ServiceCompat.startForeground(this, NOTIFY_ID, progressNotification(title, -1f, -1), type)
+        ServiceCompat.startForeground(this, NOTIFY_ID, progressNotification("جاري التجهيز...", -1f, -1), type)
 
-        canceled = false
-        DownloadState.set(DownloadStatus.Running(title, -1f, -1))
+        doneCount = 0
+        failCount = 0
         val wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "mohammel:download")
-            .apply { acquire(3 * 60 * 60 * 1000L) }
+            .apply { acquire(6 * 60 * 60 * 1000L) }
 
-        job = scope.launch {
+        worker = scope.launch {
             try {
                 Engine.awaitReady()
-                val saved = Engine.download(this@DownloadService, url, option, PROCESS_ID) { p, eta ->
-                    DownloadState.set(DownloadStatus.Running(title, p, eta))
-                    val now = System.currentTimeMillis()
-                    if (now - lastNotify > 700) {
-                        lastNotify = now
-                        notify(progressNotification(title, p, eta))
+                while (true) {
+                    var job = JobQueue.takeNext()
+                    if (job == null) {
+                        // مهلة قصيرة لو انضاف تحميل جديد بنفس اللحظة
+                        delay(500)
+                        job = JobQueue.takeNext() ?: break
                     }
+                    runJob(job)
                 }
-                DownloadState.set(DownloadStatus.Done(title, saved))
-                finish(doneNotification(title, "انحفظ في " + if (option.isAudio) "الموسيقى" else "المعرض", saved))
-            } catch (t: Throwable) {
-                if (canceled) {
-                    DownloadState.set(DownloadStatus.Canceled(title))
-                    finish(null)
-                } else {
-                    val msg = Engine.friendlyError(t)
-                    DownloadState.set(DownloadStatus.Failed(title, msg))
-                    finish(doneNotification(title, msg, null))
+            } catch (_: Throwable) {
+                // فشل تجهيز المحرك: نعلّم الباقي كخطأ
+                JobQueue.jobs.value.filter { it.active }.forEach { j ->
+                    JobQueue.update(j.id) { it.copy(status = JobStatus.ERROR, error = "صار خطأ في تجهيز التطبيق.") }
                 }
             } finally {
                 if (wakeLock.isHeld) wakeLock.release()
+                finish()
             }
         }
         return START_NOT_STICKY
     }
 
-    private fun stop(): Int { stopSelf(); return START_NOT_STICKY }
+    private fun runJob(job: Job) {
+        try {
+            val saved = Engine.download(this, job.spec, job.id) { p, eta ->
+                JobQueue.update(job.id) { it.copy(progress = p, etaSeconds = eta) }
+                val now = System.currentTimeMillis()
+                if (now - lastNotify > 700) {
+                    lastNotify = now
+                    notify(progressNotification(job.title, p, eta))
+                }
+            }
+            JobQueue.update(job.id) { it.copy(status = JobStatus.DONE, progress = 100f, saved = saved) }
+            JobQueue.get(job.id)?.let { History.add(it) }
+            doneCount++
+        } catch (t: Throwable) {
+            val canceled = t is YoutubeDL.CanceledException || JobQueue.get(job.id)?.status == JobStatus.CANCELED
+            if (canceled) {
+                JobQueue.update(job.id) { it.copy(status = JobStatus.CANCELED) }
+            } else {
+                JobQueue.update(job.id) { it.copy(status = JobStatus.ERROR, error = Engine.friendlyError(t)) }
+                failCount++
+            }
+        }
+    }
 
-    private fun finish(notification: Notification?) {
+    private fun cancelJob(id: String) {
+        if (JobQueue.cancel(id)) {
+            JobQueue.update(id) { it.copy(status = JobStatus.CANCELED) }
+            YoutubeDL.getInstance().destroyProcessById(id)
+        }
+    }
+
+    private fun finish() {
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-        if (notification != null) notify(notification, DONE_ID)
+        if (doneCount + failCount > 0) {
+            val text = buildString {
+                if (doneCount > 0) append("خلص $doneCount تحميل")
+                if (failCount > 0) { if (isNotEmpty()) append(" · "); append("فشل $failCount") }
+            }
+            notify(doneNotification(text), DONE_ID)
+        }
         stopSelf()
     }
 
@@ -109,16 +136,18 @@ class DownloadService : Service() {
 
     private fun progressNotification(title: String, progress: Float, eta: Long): Notification {
         val cancel = PendingIntent.getService(
-            this, 1, Intent(this, DownloadService::class.java).setAction(ACTION_CANCEL),
+            this, 1, Intent(this, DownloadService::class.java).setAction(ACTION_CANCEL_ALL),
             PendingIntent.FLAG_IMMUTABLE,
         )
+        val left = JobQueue.pendingCount
         val b = NotificationCompat.Builder(this, App.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notify)
             .setContentTitle(title)
+            .setSubText(if (left > 1) "باقي $left في القائمة" else null)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(openAppIntent())
-            .addAction(0, "إلغاء", cancel)
+            .addAction(0, if (left > 1) "إلغاء الكل" else "إلغاء", cancel)
         if (progress < 0) {
             b.setContentText("جاري التجهيز...").setProgress(0, 0, true)
         } else {
@@ -127,23 +156,14 @@ class DownloadService : Service() {
         return b.build()
     }
 
-    private fun doneNotification(title: String, text: String, file: SavedFile?): Notification {
-        val content = if (file != null) {
-            PendingIntent.getActivity(
-                this, 2,
-                Intent(Intent.ACTION_VIEW).setDataAndType(file.uri, file.mime)
-                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK),
-                PendingIntent.FLAG_IMMUTABLE,
-            )
-        } else openAppIntent()
-        return NotificationCompat.Builder(this, App.CHANNEL_ID)
+    private fun doneNotification(text: String): Notification =
+        NotificationCompat.Builder(this, App.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notify)
-            .setContentTitle(title)
+            .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
             .setAutoCancel(true)
-            .setContentIntent(content)
+            .setContentIntent(openAppIntent())
             .build()
-    }
 
     override fun onDestroy() {
         scope.cancel()
@@ -151,36 +171,32 @@ class DownloadService : Service() {
     }
 
     companion object {
-        private const val PROCESS_ID = "mohammel-download"
         private const val NOTIFY_ID = 1
         private const val DONE_ID = 2
         const val ACTION_CANCEL = "cancel"
-        const val EXTRA_URL = "url"
-        const val EXTRA_TITLE = "title"
-        const val EXTRA_QUALITY = "quality"
-        const val EXTRA_LABEL = "label"
-        const val EXTRA_AUDIO = "audio"
+        const val ACTION_CANCEL_ALL = "cancel_all"
+        const val EXTRA_ID = "id"
 
         fun progressText(progress: Float, eta: Long): String {
             if (progress < 0) return "جاري التجهيز..."
+            if (progress >= 100) return "جاري المعالجة..."
             val parts = mutableListOf("%d%%".format(progress.toInt()))
             if (eta > 0) parts += "باقي " + if (eta >= 60) "%d:%02d".format(eta / 60, eta % 60) else "$eta ث"
-            if (progress >= 100) return "جاري دمج الصوت مع الصورة..."
             return parts.joinToString(" · ")
         }
 
-        fun start(context: Context, summary: VideoSummary, option: QualityOption) {
-            val i = Intent(context, DownloadService::class.java)
-                .putExtra(EXTRA_URL, summary.url)
-                .putExtra(EXTRA_TITLE, summary.title)
-                .putExtra(EXTRA_QUALITY, option.id)
-                .putExtra(EXTRA_LABEL, option.label)
-                .putExtra(EXTRA_AUDIO, option.isAudio)
-            context.startForegroundService(i)
+        fun enqueue(context: Context, specs: List<JobSpec>): List<Job> {
+            val jobs = JobQueue.add(specs)
+            context.startForegroundService(Intent(context, DownloadService::class.java))
+            return jobs
         }
 
-        fun cancel(context: Context) {
-            context.startService(Intent(context, DownloadService::class.java).setAction(ACTION_CANCEL))
+        fun cancel(context: Context, id: String) {
+            if (JobQueue.get(id)?.status == JobStatus.QUEUED) {
+                JobQueue.cancel(id)
+                return
+            }
+            context.startService(Intent(context, DownloadService::class.java).setAction(ACTION_CANCEL).putExtra(EXTRA_ID, id))
         }
     }
 }
