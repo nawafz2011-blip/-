@@ -13,6 +13,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -41,6 +44,17 @@ class MainActivity : AppCompatActivity(), UiActions {
         super.onCreate(savedInstanceState)
         val binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // أندرويد 15 يخلي التطبيق يرسم تحت شريط الحالة (الساعة والبطارية).
+        // نترك مسافة بقدر الشريط فوق، وبقدر الكيبورد تحت لما ينفتح.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            v.setPadding(bars.left, bars.top, bars.right, ime.bottom)
+            binding.bottomNav.isVisible = ime.bottom == 0
+            insets
+        }
         ui = MainUi(this, binding, this) { view, url ->
             if (url != null) view.load(url) { crossfade(true) } else view.setImageDrawable(null)
         }
