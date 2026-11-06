@@ -424,7 +424,7 @@
                                         android:layout_weight="1.3"
                                         android:paddingStart="2dp"
                                         android:paddingEnd="2dp"
-                                        android:text="ملف منفصل"
+                                        android:text="منفصل"
                                         android:textSize="13sp" />
                                 </com.google.android.material.button.MaterialButtonToggleGroup>
 
