@@ -7,6 +7,9 @@ on:
       - ".github/workflows/screenshots.yml"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 concurrency:
   group: screenshots-${{ github.ref }}
   cancel-in-progress: true
@@ -28,14 +31,39 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: رسم الشاشات
+        id: record
+        continue-on-error: true
         run: |
           chmod +x gradlew
-          ./gradlew :app:recordPaparazziDebug --stacktrace
+          ./gradlew :app:recordPaparazziDebug
 
-      - uses: actions/upload-artifact@v4
-        if: always()
+      - name: ملخص الأخطاء
+        if: steps.record.outcome == 'failure'
+        run: |
+          for f in app/build/test-results/testDebugUnitTest/*.xml; do
+            python3 - "$f" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          for tc in ET.parse(sys.argv[1]).getroot().iter("testcase"):
+              for fl in list(tc.findall("failure")) + list(tc.findall("error")):
+                  text = (fl.text or "").splitlines()
+                  keep = [l for l in text if "com.nawaf" in l or not l.strip().startswith("at ")][:14]
+                  print("FAILED", tc.get("classname"), tc.get("name"), "::", fl.get("message", "")[:400])
+                  print("\n".join(keep))
+          PY
+          done
+
+      - name: نشر الصور
+        uses: softprops/action-gh-release@v2
         with:
-          name: screenshots
-          path: |
-            android/app/src/test/snapshots/images/
-            android/app/build/reports/tests/
+          tag_name: screenshots
+          name: صور شاشات التطبيق (معاينة)
+          body: صور تلقائية لشاشات تطبيق الأندرويد. تتحدث مع كل تعديل.
+          prerelease: true
+          make_latest: "false"
+          target_commitish: ${{ github.sha }}
+          files: android/app/src/test/snapshots/images/*.png
+          fail_on_unmatched_files: false
+
+      - name: فشل إذا فيه خطأ
+        if: steps.record.outcome == 'failure'
+        run: exit 1
