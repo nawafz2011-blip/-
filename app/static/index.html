@@ -3,49 +3,161 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>محمّل الفيديوهات</title>
-  <meta name="description" content="حمّل فيديوهات يوتيوب وتيك توك وغيرها بجودة لين 8K أو صوت MP3">
+  <title>محمّل</title>
+  <meta name="description" content="حمّل فيديوهات يوتيوب وتيك توك وغيرها بجودة لين 8K، أو صوت MP3، أو قوائم تشغيل كاملة">
+  <meta name="theme-color" content="#e5383b">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <header class="topbar">
+    <div class="wrap topbar-in">
+      <a class="brand" href="#" data-view="download">
+        <svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
+          <rect width="48" height="48" rx="13" fill="var(--accent)"/>
+          <path d="M21 11h6v14h6L24 35 15 25h6z" fill="#fff"/>
+          <rect x="14" y="37" width="20" height="3.5" rx="1.75" fill="#fff"/>
+        </svg>
+        <span>محمّل</span>
+      </a>
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-view="download" role="tab">تحميل</button>
+        <button class="tab" data-view="history" role="tab">السجل <span id="histCount" class="pill" hidden></span></button>
+      </nav>
+    </div>
+  </header>
+
   <main class="wrap">
-    <header class="hero">
-      <h1>محمّل الفيديوهات</h1>
-      <p>الصق رابط الفيديو من يوتيوب أو تيك توك أو إنستقرام أو تويتر وغيرها، واختر الجودة.</p>
-    </header>
-
-    <form id="form" class="search" autocomplete="off">
-      <input id="url" type="url" inputmode="url" dir="ltr" required
-             placeholder="https://www.youtube.com/watch?v=..." aria-label="رابط الفيديو">
-      <button id="paste" type="button" class="ghost" title="لصق">لصق</button>
-      <button id="go" type="submit">ابحث</button>
-    </form>
-
-    <p id="status" class="status" role="status" aria-live="polite"></p>
-
-    <section id="result" class="card" hidden>
-      <div class="media">
-        <img id="thumb" alt="" referrerpolicy="no-referrer">
-        <div class="meta">
-          <h2 id="title"></h2>
-          <p id="sub" class="muted"></p>
-        </div>
+    <!-- ======================= التحميل ======================= -->
+    <section id="view-download" class="view">
+      <div class="hero">
+        <h1>حمّل أي فيديو، بأي جودة</h1>
+        <p>يوتيوب، تيك توك، إنستقرام، تويتر، وغيرها. فيديو واحد، أو قائمة تشغيل كاملة، أو كذا رابط مرة وحدة.</p>
       </div>
-      <h3>اختر الجودة</h3>
-      <div id="options" class="options"></div>
-      <p class="muted small">الجودات العالية مثل <bdi>4K</bdi> و<bdi>8K</bdi> تاخذ وقت عشان السيرفر يحمّلها ويدمج الصوت قبل ما تبدأ عندك. لا تسكّر الصفحة.</p>
+
+      <form id="form" class="search" autocomplete="off">
+        <textarea id="url" rows="1" dir="ltr" required spellcheck="false"
+          placeholder="https://www.youtube.com/watch?v=..." aria-label="الرابط"></textarea>
+        <div class="search-actions">
+          <button id="paste" type="button" class="btn ghost">لصق</button>
+          <button id="go" type="submit" class="btn primary">ابحث</button>
+        </div>
+      </form>
+      <p class="hint">تقدر تلصق أكثر من رابط، كل رابط في سطر.</p>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+
+      <!-- فيديو واحد -->
+      <section id="single" class="card" hidden>
+        <div class="media">
+          <img id="thumb" alt="" referrerpolicy="no-referrer">
+          <div class="meta">
+            <h2 id="title"></h2>
+            <p id="sub" class="muted"></p>
+          </div>
+        </div>
+
+        <h3>اختر الجودة</h3>
+        <div id="options" class="options"></div>
+
+        <details id="extras" class="extras">
+          <summary>خيارات إضافية: قص، ترجمة، صورة الغلاف</summary>
+
+          <div class="extra-block">
+            <h4>✂️ قص الفيديو</h4>
+            <p class="muted small">اكتب وقت البداية والنهاية، وبعدها اختر الجودة من فوق. اتركها فاضية عشان تحمّل الفيديو كامل.</p>
+            <div class="trim">
+              <label>من <input id="trimStart" inputmode="numeric" dir="ltr" placeholder="0:00"></label>
+              <label>إلى <input id="trimEnd" inputmode="numeric" dir="ltr" placeholder="النهاية"></label>
+              <button type="button" id="trimClear" class="btn ghost small-btn">مسح</button>
+            </div>
+          </div>
+
+          <div class="extra-block" id="subsBlock">
+            <h4>💬 الترجمة</h4>
+            <div class="row">
+              <select id="subsLang" aria-label="لغة الترجمة"></select>
+              <button type="button" id="subsBtn" class="btn ghost">حمّل الترجمة (SRT)</button>
+            </div>
+            <p id="noSubs" class="muted small" hidden>ما فيه ترجمة لهذا الفيديو.</p>
+          </div>
+
+          <div class="extra-block" id="thumbBlock">
+            <h4>🖼️ صورة الغلاف</h4>
+            <button type="button" id="thumbBtn" class="btn ghost">حمّل صورة الغلاف (JPG)</button>
+          </div>
+        </details>
+      </section>
+
+      <!-- قائمة تشغيل -->
+      <section id="playlist" class="card" hidden>
+        <div class="pl-head">
+          <div>
+            <h2 id="plTitle"></h2>
+            <p id="plSub" class="muted"></p>
+          </div>
+        </div>
+        <div class="pl-controls">
+          <label class="check"><input type="checkbox" id="plAll" checked> تحديد الكل</label>
+          <select id="plQuality" class="quality-select" aria-label="الجودة"></select>
+          <button type="button" id="plGo" class="btn primary">حمّل المحدد</button>
+        </div>
+        <ol id="plList" class="pl-list"></ol>
+      </section>
+
+      <!-- كذا رابط -->
+      <section id="batch" class="card" hidden>
+        <h2 id="batchTitle"></h2>
+        <p class="muted small">بتنزل ورا بعض، وتقدر تتابعها تحت.</p>
+        <div class="pl-controls">
+          <select id="batchQuality" class="quality-select" aria-label="الجودة"></select>
+          <button type="button" id="batchGo" class="btn primary">حمّل الكل</button>
+        </div>
+      </section>
+
+      <!-- التحميلات -->
+      <section id="queue" class="queue" hidden>
+        <div class="section-head">
+          <h2>التحميلات</h2>
+          <button type="button" id="clearDone" class="btn link">مسح المنتهية</button>
+        </div>
+        <ul id="jobs" class="jobs"></ul>
+      </section>
+
+      <section class="sites">
+        <span>يوتيوب</span><span>تيك توك</span><span>إنستقرام</span><span>تويتر / X</span><span>فيسبوك</span><span>ساوند كلاود</span><span>+ مئات المواقع</span>
+      </section>
     </section>
 
-    <section class="sites">
-      <span>يوتيوب</span><span>تيك توك</span><span>إنستقرام</span><span>تويتر / X</span><span>فيسبوك</span><span>ساوند كلاود</span><span>+ مئات المواقع</span>
+    <!-- ======================= السجل ======================= -->
+    <section id="view-history" class="view" hidden>
+      <div class="section-head">
+        <h2>سجل التحميلات</h2>
+        <button type="button" id="clearHistory" class="btn link">مسح السجل</button>
+      </div>
+      <p id="histEmpty" class="empty" hidden>لسا ما حمّلت شيء. أول ما تحمّل، بيطلع هنا.</p>
+      <ul id="histList" class="jobs"></ul>
     </section>
 
     <footer class="muted small">
       استخدم الموقع لتحميل المحتوى اللي تملكه أو المسموح بتحميله فقط، واحترم حقوق أصحاب المحتوى.
     </footer>
   </main>
+
+  <template id="jobTpl">
+    <li class="job">
+      <img class="job-thumb" alt="" referrerpolicy="no-referrer">
+      <div class="job-body">
+        <div class="job-title"></div>
+        <div class="job-label muted small"></div>
+        <div class="bar"><div class="bar-fill"></div></div>
+        <div class="job-meta small"></div>
+      </div>
+      <div class="job-actions"></div>
+    </li>
+  </template>
+
   <script src="app.js"></script>
 </body>
 </html>

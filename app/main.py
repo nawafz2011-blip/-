@@ -1,33 +1,38 @@
-"""موقع تحميل الفيديوهات - سيرفر FastAPI مبني على yt-dlp و ffmpeg."""
+"""محمّل - سيرفر FastAPI مبني على yt-dlp و ffmpeg."""
 
 from __future__ import annotations
 
 import asyncio
 import os
-import re
 import shutil
-import tempfile
 import time
 from pathlib import Path
 from urllib.parse import quote, urlparse
 
 import yt_dlp
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-from starlette.background import BackgroundTask
+from pydantic import BaseModel, Field
+
+from .history import History
+from .jobs import ACTIVE_STATES, Job, JobManager, JobSpec
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
+DATA_DIR = Path(os.getenv("DATA_DIR", BASE_DIR.parent / "data"))
 
 # إعدادات قابلة للتعديل من متغيرات البيئة
 MAX_CONCURRENT_DOWNLOADS = int(os.getenv("MAX_CONCURRENT_DOWNLOADS", "3"))
 MAX_DURATION_SECONDS = int(os.getenv("MAX_DURATION_SECONDS", str(3 * 60 * 60)))  # 3 ساعات
 MAX_FILESIZE_BYTES = int(os.getenv("MAX_FILESIZE_MB", "4096")) * 1024 * 1024
-RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "20"))
+RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "30"))
+MAX_PLAYLIST_ITEMS = int(os.getenv("MAX_PLAYLIST_ITEMS", "300"))
+MAX_JOBS_PER_REQUEST = int(os.getenv("MAX_JOBS_PER_REQUEST", "300"))
 COOKIES_FILE = os.getenv("COOKIES_FILE")  # اختياري: ملف كوكيز لتجاوز حظر يوتيوب
 PROXY = os.getenv("YTDLP_PROXY")  # اختياري: بروكسي
+# للاختبار فقط: يسمح بالروابط المباشرة لملفات الفيديو. لا تفعّله على سيرفر عام (يفتح باب SSRF).
+ALLOW_GENERIC = os.getenv("YTDLP_ALLOW_GENERIC") == "1"
 
 
 def _find_ffmpeg() -> str | None:
@@ -44,23 +49,85 @@ def _find_ffmpeg() -> str | None:
 
 FFMPEG_LOCATION = _find_ffmpeg()
 
-QUALITY_LABELS = {
-    4320: "8K",
-    2160: "4K",
-    1440: "2K",
-    1080: "Full HD",
-    720: "HD",
+QUALITY_LABELS = {4320: "8K", 2160: "4K", 1440: "2K", 1080: "Full HD", 720: "HD"}
+LANG_NAMES = {
+    "ar": "العربية", "en": "الإنجليزية", "fr": "الفرنسية", "es": "الإسبانية", "de": "الألمانية",
+    "tr": "التركية", "ur": "الأردية", "hi": "الهندية", "id": "الإندونيسية", "ms": "الملايوية",
+    "fa": "الفارسية", "ru": "الروسية", "ja": "اليابانية", "ko": "الكورية", "zh": "الصينية",
+    "it": "الإيطالية", "pt": "البرتغالية",
 }
 
-app = FastAPI(title="محمّل الفيديوهات")
-download_slots = asyncio.Semaphore(MAX_CONCURRENT_DOWNLOADS)
+app = FastAPI(title="محمّل")
 _rate_buckets: dict[str, list[float]] = {}
 
 
-class InfoRequest(BaseModel):
-    url: str
+def _base_opts() -> dict:
+    opts: dict = {
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+        "socket_timeout": 30,
+    }
+    if not ALLOW_GENERIC:
+        # نمنع المستخرج العام حتى ما يقدر أحد يخلي السيرفر يفتح روابط داخلية (SSRF)
+        opts["allowed_extractors"] = ["default", "-generic"]
+    if COOKIES_FILE:
+        opts["cookiefile"] = COOKIES_FILE
+    if PROXY:
+        opts["proxy"] = PROXY
+    if FFMPEG_LOCATION:
+        opts["ffmpeg_location"] = FFMPEG_LOCATION
+    return opts
 
 
+def _friendly_error(exc: Exception) -> str:
+    msg = str(exc)
+    low = msg.lower()
+    if "Unsupported URL" in msg or "No suitable extractor" in msg:
+        return "هذا الموقع غير مدعوم."
+    if "Sign in to confirm" in msg or "bot" in low:
+        return "يوتيوب حظر السيرفر مؤقتاً. جرّب لاحقاً أو أضف ملف كوكيز."
+    if "private" in low:
+        return "الفيديو خاص أو محذوف."
+    if "requested format is not available" in low:
+        return "الجودة هذي مو متوفرة لهذا الفيديو."
+    if "no space left" in low:
+        return "المساحة في الجهاز ما تكفي."
+    return "ما قدرنا نجيب الفيديو. تأكد من الرابط."
+
+
+history = History(DATA_DIR / "history.json")
+
+
+def _record_history(job: Job) -> None:
+    s = job.spec
+    history.add(
+        {
+            "url": s.url,
+            "title": job.title or s.title,
+            "thumbnail": job.thumbnail or s.thumbnail,
+            "kind": s.kind,
+            "quality": s.quality,
+            "start": s.start,
+            "end": s.end,
+            "lang": s.lang,
+            "label": job.label,
+            "size": job.size,
+        }
+    )
+
+
+manager = JobManager(
+    base_opts=_base_opts,
+    friendly_error=_friendly_error,
+    on_done=_record_history,
+    workers=MAX_CONCURRENT_DOWNLOADS,
+    max_filesize=MAX_FILESIZE_BYTES,
+    max_duration=MAX_DURATION_SECONDS,
+)
+
+
+# ---------------------------------------------------------------- أدوات
 def _client_ip(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
@@ -86,54 +153,41 @@ def _validate_url(url: str) -> str:
     return url
 
 
-def _base_opts() -> dict:
-    opts: dict = {
-        "quiet": True,
-        "no_warnings": True,
-        "noplaylist": True,
-        # نمنع المستخرج العام حتى ما يقدر أحد يخلي السيرفر يفتح روابط داخلية (SSRF)
-        "allowed_extractors": ["default", "-generic"],
-        "socket_timeout": 30,
-    }
-    if COOKIES_FILE:
-        opts["cookiefile"] = COOKIES_FILE
-    if PROXY:
-        opts["proxy"] = PROXY
-    if FFMPEG_LOCATION:
-        opts["ffmpeg_location"] = FFMPEG_LOCATION
-    return opts
-
-
-def _friendly_error(exc: Exception) -> HTTPException:
-    msg = str(exc)
-    if "Unsupported URL" in msg or "No suitable extractor" in msg:
-        return HTTPException(400, "هذا الموقع غير مدعوم.")
-    if "Sign in to confirm" in msg or "bot" in msg.lower():
-        return HTTPException(503, "يوتيوب حظر السيرفر مؤقتاً. جرّب لاحقاً أو أضف ملف كوكيز.")
-    if "Private video" in msg or "private" in msg.lower():
-        return HTTPException(403, "الفيديو خاص أو محذوف.")
-    return HTTPException(400, "ما قدرنا نجيب الفيديو. تأكد من الرابط.")
-
-
-def _extract_info(url: str) -> dict:
-    with yt_dlp.YoutubeDL(_base_opts()) as ydl:
-        info = ydl.extract_info(url, download=False)
-    if info.get("_type") == "playlist":
-        entries = [e for e in info.get("entries") or [] if e]
-        if not entries:
-            raise HTTPException(400, "ما فيه فيديو في هذا الرابط.")
-        info = entries[0]
-    return info
-
-
 def _quality_label(height: int) -> str:
     for h, label in QUALITY_LABELS.items():
         if height >= h:
-            return f"{height}p ({label})" if label else f"{height}p"
+            return f"{height}p ({label})"
     return f"{height}p"
 
 
-def _summarize(info: dict) -> dict:
+def _best_thumb(entry: dict) -> str | None:
+    if entry.get("thumbnail"):
+        return entry["thumbnail"]
+    thumbs = entry.get("thumbnails") or []
+    return thumbs[-1].get("url") if thumbs else None
+
+
+def _subtitle_options(info: dict) -> list[dict]:
+    out: list[dict] = []
+    seen: set[str] = set()
+    for code in (info.get("subtitles") or {}):
+        if code == "live_chat" or code in seen:
+            continue
+        seen.add(code)
+        out.append({"code": code, "name": LANG_NAMES.get(code.split("-")[0], code), "auto": False})
+    auto = info.get("automatic_captions") or {}
+    # الترجمة التلقائية فيها مئات اللغات، نعرض المهم بس
+    for code in auto:
+        base = code.split("-")[0]
+        if code in seen or not (code.endswith("-orig") or code in ("ar", "en")):
+            continue
+        seen.add(code)
+        name = LANG_NAMES.get(base, base)
+        out.append({"code": code, "name": f"{name} (تلقائية)", "auto": True})
+    return out
+
+
+def _summarize_video(info: dict) -> dict:
     formats = info.get("formats") or []
     heights: dict[int, int | None] = {}
     for f in formats:
@@ -155,14 +209,67 @@ def _summarize(info: dict) -> dict:
         options.append({"id": "audio", "label": "صوت فقط (MP3)", "type": "audio", "approx_size": None})
 
     return {
+        "type": "video",
         "title": info.get("title") or "فيديو",
-        "thumbnail": info.get("thumbnail"),
+        "thumbnail": _best_thumb(info),
         "duration": info.get("duration"),
         "uploader": info.get("uploader") or info.get("channel"),
         "site": info.get("extractor_key"),
         "webpage_url": info.get("webpage_url"),
         "options": options,
+        "subtitles": _subtitle_options(info),
+        "has_thumbnail": bool(_best_thumb(info)),
     }
+
+
+def _summarize_playlist(info: dict) -> dict:
+    entries = []
+    for e in info.get("entries") or []:
+        if not e:
+            continue
+        url = e.get("webpage_url") or e.get("url")
+        if not url:
+            continue
+        if not url.startswith("http") and e.get("ie_key") == "Youtube":
+            url = f"https://www.youtube.com/watch?v={url}"
+        entries.append(
+            {
+                "url": url,
+                "title": e.get("title") or "فيديو",
+                "duration": e.get("duration"),
+                "thumbnail": _best_thumb(e),
+            }
+        )
+        if len(entries) >= MAX_PLAYLIST_ITEMS:
+            break
+    return {
+        "type": "playlist",
+        "title": info.get("title") or "قائمة تشغيل",
+        "uploader": info.get("uploader") or info.get("channel"),
+        "site": info.get("extractor_key"),
+        "count": len(entries),
+        "total": info.get("playlist_count") or len(entries),
+        "entries": entries,
+    }
+
+
+def _extract(url: str) -> dict:
+    opts = _base_opts()
+    opts["extract_flat"] = "in_playlist"
+    opts["playlistend"] = MAX_PLAYLIST_ITEMS
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+    if info.get("_type") in ("playlist", "multi_video"):
+        entries = [e for e in info.get("entries") or [] if e]
+        if not entries:
+            raise HTTPException(400, "ما فيه فيديوهات في هذا الرابط.")
+        return _summarize_playlist(info)
+    return _summarize_video(info)
+
+
+# ---------------------------------------------------------------- معلومات الفيديو
+class InfoRequest(BaseModel):
+    url: str
 
 
 @app.post("/api/info")
@@ -170,89 +277,130 @@ async def video_info(body: InfoRequest, request: Request) -> JSONResponse:
     _check_rate_limit(request)
     url = _validate_url(body.url)
     try:
-        info = await asyncio.to_thread(_extract_info, url)
+        data = await asyncio.to_thread(_extract, url)
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
-        raise _friendly_error(exc) from exc
-    return JSONResponse(_summarize(info))
+        raise HTTPException(400, _friendly_error(exc)) from exc
+    return JSONResponse(data)
 
 
-def _safe_filename(name: str) -> str:
-    name = re.sub(r'[\\/:*?"<>|\r\n\t]+', " ", name).strip()
-    return (name[:150] or "video").strip()
+# ---------------------------------------------------------------- المهام
+class JobItem(BaseModel):
+    url: str
+    kind: str = "video"
+    quality: str = "best"
+    start: float | None = Field(default=None, ge=0)
+    end: float | None = Field(default=None, gt=0)
+    lang: str | None = Field(default=None, max_length=20)
+    title: str | None = Field(default=None, max_length=300)
+    thumbnail: str | None = Field(default=None, max_length=2000)
 
 
-def _download(url: str, quality: str, workdir: str) -> Path:
-    opts = _base_opts()
-    opts.update(
-        {
-            "outtmpl": os.path.join(workdir, "%(title).150B.%(ext)s"),
-            "max_filesize": MAX_FILESIZE_BYTES,
-            "match_filter": yt_dlp.utils.match_filter_func(f"!is_live & duration <=? {MAX_DURATION_SECONDS}"),
-            "concurrent_fragment_downloads": 4,
-        }
+class JobsRequest(BaseModel):
+    items: list[JobItem]
+
+
+def _to_spec(item: JobItem) -> JobSpec:
+    url = _validate_url(item.url)
+    if item.kind not in ("video", "audio", "thumb", "subs"):
+        raise HTTPException(400, "نوع التحميل غير صحيح.")
+    quality = item.quality
+    if item.kind == "video" and quality != "best" and not quality.isdigit():
+        raise HTTPException(400, "الجودة غير صحيحة.")
+    if item.kind == "subs" and not item.lang:
+        raise HTTPException(400, "اختر لغة الترجمة.")
+    if item.start is not None and item.end is not None and item.end <= item.start:
+        raise HTTPException(400, "وقت النهاية لازم يكون بعد البداية.")
+    thumb = item.thumbnail if item.thumbnail and item.thumbnail.startswith("http") else None
+    return JobSpec(
+        url=url, kind=item.kind, quality=quality, start=item.start, end=item.end,
+        lang=item.lang, title=item.title, thumbnail=thumb,
     )
-    if quality == "audio":
-        opts["format"] = "bestaudio/best"
-        opts["postprocessors"] = [
-            {"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}
-        ]
-    else:
-        if quality == "best":
-            res = None
-        elif quality.isdigit():
-            res = int(quality)
-        else:
-            raise HTTPException(400, "الجودة غير صحيحة.")
-        opts["format"] = "bv*+ba/b"
-        # نفضّل H.264 + AAC لأنها تشتغل على كل الأجهزة (QuickTime والآيفون والويندوز).
-        # 4K و8K في يوتيوب ما لها H.264 فتنزل VP9/AV1.
-        opts["format_sort"] = ([f"res:{res}"] if res else ["res"]) + ["vcodec:h264", "acodec:aac", "ext:mp4:m4a"]
-        # mp4 يشتغل على كل الأجهزة. الجودات العالية (4K/8K) غالباً VP9/AV1 وتنحط داخل mp4 عادي
-        opts["merge_output_format"] = "mp4"
-
-    with yt_dlp.YoutubeDL(opts) as ydl:
-        ydl.extract_info(url, download=True)
-
-    files = [p for p in Path(workdir).iterdir() if p.is_file() and not p.name.endswith((".part", ".ytdl"))]
-    if not files:
-        raise HTTPException(400, "الفيديو أطول أو أكبر من المسموح، أو بث مباشر.")
-    return max(files, key=lambda p: p.stat().st_size)
 
 
-@app.get("/api/download")
-async def download(request: Request, url: str = Query(...), quality: str = Query("best")):
+@app.post("/api/jobs")
+async def create_jobs(body: JobsRequest, request: Request) -> JSONResponse:
     _check_rate_limit(request)
-    url = _validate_url(url)
+    if not body.items:
+        raise HTTPException(400, "ما فيه روابط.")
+    if len(body.items) > MAX_JOBS_PER_REQUEST:
+        raise HTTPException(400, f"أقصى عدد {MAX_JOBS_PER_REQUEST} رابط بالمرة.")
+    specs = [_to_spec(i) for i in body.items]
+    jobs = [manager.submit(s) for s in specs]
+    return JSONResponse({"jobs": [j.public() for j in jobs]})
 
-    if download_slots.locked():
-        raise HTTPException(503, "السيرفر مشغول، حاول بعد شوي.")
 
-    async with download_slots:
-        workdir = tempfile.mkdtemp(prefix="dl_")
-        try:
-            path = await asyncio.to_thread(_download, url, quality, workdir)
-        except HTTPException:
-            shutil.rmtree(workdir, ignore_errors=True)
-            raise
-        except Exception as exc:  # noqa: BLE001
-            shutil.rmtree(workdir, ignore_errors=True)
-            raise _friendly_error(exc) from exc
+@app.get("/api/jobs")
+async def list_jobs() -> dict:
+    return {"jobs": [j.public() for j in manager.list()]}
 
-    filename = _safe_filename(path.stem) + path.suffix
-    headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"}
-    return FileResponse(
-        path,
-        headers=headers,
-        media_type="application/octet-stream",
-        background=BackgroundTask(shutil.rmtree, workdir, ignore_errors=True),
-    )
+
+@app.get("/api/jobs/{job_id}")
+async def get_job(job_id: str) -> dict:
+    job = manager.get(job_id)
+    if not job:
+        raise HTTPException(404, "المهمة غير موجودة.")
+    return job.public()
+
+
+@app.post("/api/jobs/{job_id}/cancel")
+async def cancel_job(job_id: str) -> dict:
+    if not manager.cancel(job_id):
+        raise HTTPException(404, "المهمة غير موجودة.")
+    return {"ok": True}
+
+
+@app.delete("/api/jobs/{job_id}")
+async def delete_job(job_id: str) -> dict:
+    if not manager.remove(job_id):
+        raise HTTPException(404, "المهمة غير موجودة.")
+    return {"ok": True}
+
+
+@app.delete("/api/jobs")
+async def clear_jobs() -> dict:
+    manager.clear_finished()
+    return {"ok": True}
+
+
+@app.get("/api/jobs/{job_id}/file")
+async def job_file(job_id: str):
+    job = manager.get(job_id)
+    if not job or job.status != "done" or not job.path or not Path(job.path).exists():
+        raise HTTPException(404, "الملف غير جاهز أو انحذف. حمّله مرة ثانية.")
+    headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(job.filename or 'video')}"}
+    return FileResponse(job.path, headers=headers, media_type="application/octet-stream")
+
+
+# ---------------------------------------------------------------- السجل
+@app.get("/api/history")
+async def get_history() -> dict:
+    return {"items": history.all()}
+
+
+@app.delete("/api/history/{item_id}")
+async def delete_history_item(item_id: str) -> dict:
+    if not history.delete(item_id):
+        raise HTTPException(404, "غير موجود.")
+    return {"ok": True}
+
+
+@app.delete("/api/history")
+async def clear_history() -> dict:
+    history.clear()
+    return {"ok": True}
 
 
 @app.get("/api/health")
 async def health() -> dict:
-    return {"ok": True, "yt_dlp": yt_dlp.version.__version__, "ffmpeg": bool(shutil.which("ffmpeg") or FFMPEG_LOCATION)}
+    active = sum(1 for j in manager.list() if j.status in ACTIVE_STATES)
+    return {
+        "ok": True,
+        "yt_dlp": yt_dlp.version.__version__,
+        "ffmpeg": bool(shutil.which("ffmpeg") or FFMPEG_LOCATION),
+        "active_jobs": active,
+    }
 
 
 app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
