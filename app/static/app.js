@@ -390,7 +390,7 @@ function renderJobs() {
     li.querySelector(".job-meta").textContent = iso(jobMeta(j));
 
     const actions = li.querySelector(".job-actions");
-    const key = j.status;
+    const key = j.status + (server.photos || canShareFiles() ? ":photos" : "");
     if (actions.dataset.key !== key) {
       actions.dataset.key = key;
       actions.replaceChildren();
@@ -398,6 +398,11 @@ function renderJobs() {
         actions.append(actionBtn("إلغاء", "ghost", () => api(`api/jobs/${j.id}/cancel`, { method: "POST" }).then(poll).catch(() => {})));
       } else {
         if (j.status === "done") actions.append(actionBtn("حفظ", "primary", () => saveFile(j)));
+        if (j.status === "done" && canPhotos(j)) {
+          const pb = actionBtn(photosLabel(), "photos", () => saveToPhotos(j, pb));
+          if (photosDone.has(j.id)) { pb.textContent = "✓ في الصور"; pb.disabled = true; }
+          actions.append(pb);
+        }
         if (j.status === "error" || j.status === "canceled") actions.append(actionBtn("إعادة", "ghost", () => retry(j)));
         actions.append(actionBtn("إزالة", "link", () => removeJob(j.id)));
       }
@@ -433,7 +438,10 @@ async function poll() {
     for (const j of list) {
       if (j.status === "done" && autoSave.has(j.id)) {
         autoSave.delete(j.id);
-        saveFile(j);
+        if (autoPhotosOn() && canPhotos(j) && server.photos) saveToPhotos(j, null);
+        else saveFile(j);
+      } else if (j.status === "done" && prev.get(j.id) && prev.get(j.id).status !== "done" && autoPhotosOn() && canPhotos(j) && server.photos) {
+        saveToPhotos(j, null);
       }
       if (j.status === "done" && prev.get(j.id)?.status !== "done") historyDirty = true;
     }
@@ -506,8 +514,73 @@ $("clearHistory").addEventListener("click", async () => {
   api("api/history", { method: "DELETE" }).catch(() => {});
 });
 
+/* ---------------------------------------------------------------- تطبيق الصور */
+const server = { photos: false, local: false };
+const photosDone = new Set();
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+function canPhotos(j) {
+  return (j.kind === "video" || j.kind === "thumb") && (server.photos || canShareFiles());
+}
+function canShareFiles() {
+  try { return !!(navigator.canShare && navigator.canShare({ files: [new File([""], "a.mp4", { type: "video/mp4" })] })); }
+  catch { return false; }
+}
+function photosLabel() {
+  if (server.photos) return server.local ? "📷 الصور" : "📷 صور الماك";
+  return "📷 الصور";
+}
+function autoPhotosOn() {
+  try { return localStorage.getItem("autoPhotos") === "1"; } catch { return false; }
+}
+
+async function saveToPhotos(j, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = "جاري الحفظ..."; }
+  try {
+    if (server.photos) {
+      await api(`api/jobs/${j.id}/photos`, { method: "POST" });
+    } else {
+      // المتصفح يفتح قائمة المشاركة، وفيها (حفظ الفيديو) أو (حفظ في الصور)
+      const res = await fetch(`api/jobs/${j.id}/file`);
+      const blob = await res.blob();
+      const file = new File([blob], j.filename || "video.mp4", { type: j.kind === "thumb" ? "image/jpeg" : "video/mp4" });
+      await navigator.share({ files: [file] });
+    }
+    photosDone.add(j.id);
+    const box = document.querySelector(`[data-id="${j.id}"] .job-actions`);
+    if (box) box.dataset.key = ""; // نعيد رسم الأزرار عشان يطلع (✓ في الصور)
+    renderJobs();
+    setStatus(server.photos && !server.local ? "انحفظ في تطبيق الصور في الماك ✓ (إذا صور iCloud شغالة بيوصل لجوالك)" : "انحفظ في الصور ✓");
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = photosLabel(); }
+    if (err?.name !== "AbortError") setStatus(err.message || "ما قدرنا نحفظ في الصور.", true);
+  }
+}
+
+async function loadServerInfo() {
+  try {
+    Object.assign(server, await api("api/health"));
+  } catch { /* تجاهل */ }
+  const row = $("autoPhotosRow");
+  row.hidden = !server.photos;
+  $("autoPhotosText").textContent = server.local
+    ? "احفظ في تطبيق الصور تلقائياً أول ما يخلص التحميل"
+    : "احفظ في تطبيق الصور في الماك تلقائياً أول ما يخلص التحميل";
+  $("autoPhotos").checked = autoPhotosOn();
+  const tip = $("photosTip");
+  if (!server.photos && !canShareFiles() && isIOS) {
+    tip.textContent = "على الآيفون: اضغط (حفظ)، وبعدها افتح الملف من تطبيق الملفات ← التنزيلات، واضغط زر المشاركة ← (حفظ الفيديو) عشان يروح للصور.";
+    tip.hidden = false;
+  }
+  renderJobs();
+}
+$("autoPhotos").addEventListener("change", (e) => {
+  try { localStorage.setItem("autoPhotos", e.target.checked ? "1" : "0"); } catch { /* تجاهل */ }
+});
+
 /* ---------------------------------------------------------------- البداية */
 fillPresets($("plQuality"));
 fillPresets($("batchQuality"));
 poll();
 refreshHistoryCount();
+loadServerInfo();

@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import os
 import shutil
+import subprocess
+import sys
 import time
 from pathlib import Path
 from urllib.parse import quote, urlparse
@@ -395,10 +397,47 @@ async def clear_history() -> dict:
     return {"ok": True}
 
 
+# ---------------------------------------------------------------- تطبيق الصور (الماك)
+PHOTOS_APP = Path("/System/Applications/Photos.app")
+PHOTOS_SUPPORTED = sys.platform == "darwin" and PHOTOS_APP.exists()
+
+
+def _import_to_photos(path: str) -> None:
+    """يضيف الملف لتطبيق الصور في الماك (ولو صور iCloud شغالة، يوصل للآيفون بعد)."""
+    script = (
+        "on run argv\n"
+        "  set f to (POSIX file (item 1 of argv)) as alias\n"
+        '  tell application "Photos" to import {f} skip check duplicates true\n'
+        "end run"
+    )
+    result = subprocess.run(["osascript", "-e", script, path], capture_output=True, text=True, timeout=300)
+    if result.returncode != 0:
+        err = result.stderr.lower()
+        if "not allowed" in err or "-1743" in err or "not authorized" in err:
+            raise HTTPException(403, "الماك ما سمح. افتح إعدادات النظام ← الخصوصية والأمان ← الأتمتة، وفعّل (الصور) للـ Terminal.")
+        raise HTTPException(400, "تطبيق الصور ما قبل الملف. جودات 2K و4K و8K بصيغة VP9 أحياناً ما يقبلها، جرّب 1080p.")
+
+
+@app.post("/api/jobs/{job_id}/photos")
+async def save_to_photos(job_id: str) -> dict:
+    if not PHOTOS_SUPPORTED:
+        raise HTTPException(400, "الحفظ في الصور يشتغل لما يكون الموقع شغال على ماك.")
+    job = manager.get(job_id)
+    if not job or job.status != "done" or not job.path or not Path(job.path).exists():
+        raise HTTPException(404, "الملف غير جاهز أو انحذف. حمّله مرة ثانية.")
+    if job.spec.kind not in ("video", "thumb"):
+        raise HTTPException(400, "تطبيق الصور يقبل الفيديو والصور بس.")
+    await asyncio.to_thread(_import_to_photos, job.path)
+    return {"ok": True}
+
+
 @app.get("/api/health")
-async def health() -> dict:
+async def health(request: Request) -> dict:
     active = sum(1 for j in manager.list() if j.status in ACTIVE_STATES)
+    host = request.client.host if request.client else ""
     return {
+        "photos": PHOTOS_SUPPORTED,
+        "local": host in ("127.0.0.1", "::1", "localhost"),
         "ok": True,
         "yt_dlp": yt_dlp.version.__version__,
         "ffmpeg": bool(shutil.which("ffmpeg") or FFMPEG_LOCATION),
