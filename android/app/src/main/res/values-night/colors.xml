@@ -1,9 +1,11 @@
 <resources>
-    <color name="bg">#0F1117</color>
-    <color name="card">#181B24</color>
+    <color name="accent_soft">#3A1C20</color>
+    <color name="bg">#0E1016</color>
+    <color name="card">#171A23</color>
     <color name="text">#EEF0F6</color>
     <color name="muted">#9AA1B5</color>
     <color name="chip">#222634</color>
-    <color name="line">#2A2F3D</color>
+    <color name="line">#262B38</color>
     <color name="ok">#3CCF7E</color>
+    <color name="ok_soft">#15301F</color>
 </resources>

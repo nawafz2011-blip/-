@@ -1,6 +1,8 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    // يرسم شاشات التطبيق كصور بدون جوال (للمعاينة)
+    id("app.cash.paparazzi")
 }
 
 // رقم النسخة ييجي من GitHub Actions (رقم البناء) عشان التحديث يشتغل
@@ -73,4 +75,6 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("io.coil-kt:coil:2.7.0")
+
+    testImplementation("junit:junit:4.13.2")
 }

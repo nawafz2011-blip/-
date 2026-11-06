@@ -1,0 +1,41 @@
+name: صور شاشات التطبيق
+
+on:
+  push:
+    paths:
+      - "android/**"
+      - ".github/workflows/screenshots.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: رسم الشاشات
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:recordPaparazziDebug --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: |
+            android/app/src/test/snapshots/images/
+            android/app/build/reports/tests/

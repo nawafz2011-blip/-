@@ -1,18 +1,19 @@
 <resources>
-    <style name="Card" parent="Widget.Material3.CardView.Outlined">
+    <style name="Card" parent="Widget.Material3.CardView.Elevated">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_marginTop">12dp</item>
+        <item name="android:layout_marginTop">14dp</item>
         <item name="cardBackgroundColor">@color/card</item>
-        <item name="strokeColor">@color/line</item>
-        <item name="cardCornerRadius">14dp</item>
+        <item name="cardCornerRadius">20dp</item>
+        <item name="cardElevation">1dp</item>
     </style>
     <style name="TitleText">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:textColor">@color/text</item>
-        <item name="android:textSize">17sp</item>
+        <item name="android:textSize">18sp</item>
         <item name="android:textStyle">bold</item>
+        <item name="android:lineSpacingMultiplier">1.1</item>
     </style>
     <style name="MutedText">
         <item name="android:layout_width">match_parent</item>
@@ -23,10 +24,36 @@
     <style name="SectionText">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_marginTop">16dp</item>
-        <item name="android:layout_marginBottom">6dp</item>
+        <item name="android:layout_marginTop">18dp</item>
+        <item name="android:layout_marginBottom">10dp</item>
         <item name="android:textColor">@color/text</item>
         <item name="android:textSize">16sp</item>
         <item name="android:textStyle">bold</item>
+    </style>
+    <style name="Pill">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_margin">3dp</item>
+        <item name="android:background">@drawable/pill_bg</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="android:paddingTop">5dp</item>
+        <item name="android:paddingBottom">5dp</item>
+        <item name="android:textColor">@color/muted</item>
+        <item name="android:textSize">13sp</item>
+    </style>
+    <style name="ExtraChip" parent="Widget.Material3.Button.TonalButton">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:paddingStart">4dp</item>
+        <item name="android:paddingEnd">4dp</item>
+        <item name="iconGravity">textStart</item>
+        <item name="iconPadding">4dp</item>
+        <item name="iconSize">18dp</item>
+    </style>
+    <style name="NavIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:color">@color/accent_soft</item>
     </style>
 </resources>

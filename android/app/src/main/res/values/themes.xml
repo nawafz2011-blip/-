@@ -2,12 +2,45 @@
     <style name="Theme.Mohammel" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/accent</item>
         <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">@color/accent_soft</item>
+        <item name="colorOnPrimaryContainer">@color/accent</item>
         <item name="colorSecondary">@color/accent</item>
+        <item name="colorSecondaryContainer">@color/accent_soft</item>
+        <item name="colorOnSecondaryContainer">@color/accent</item>
         <item name="android:colorBackground">@color/bg</item>
         <item name="colorSurface">@color/card</item>
+        <item name="colorSurfaceContainer">@color/card</item>
         <item name="colorOnSurface">@color/text</item>
+        <item name="colorOnSurfaceVariant">@color/muted</item>
+        <item name="colorOutline">@color/line</item>
         <item name="android:statusBarColor">@color/bg</item>
-        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/card</item>
         <item name="android:windowLightStatusBar">@bool/light_bars</item>
+        <item name="android:fontFamily">@font/tajawal</item>
+        <item name="fontFamily">@font/tajawal</item>
+        <item name="textAppearanceBodyLarge">@style/Text.Body</item>
+        <item name="textAppearanceBodyMedium">@style/Text.Body</item>
+        <item name="textAppearanceLabelLarge">@style/Text.Label</item>
+        <item name="textAppearanceLabelMedium">@style/Text.Label</item>
+        <item name="textAppearanceTitleMedium">@style/Text.Label</item>
+        <item name="shapeAppearanceCornerMedium">@style/Shape.Rounded</item>
+    </style>
+
+    <style name="Text.Body" parent="TextAppearance.Material3.BodyLarge">
+        <item name="fontFamily">@font/tajawal</item>
+        <item name="android:fontFamily">@font/tajawal</item>
+    </style>
+    <style name="Text.Label" parent="TextAppearance.Material3.LabelLarge">
+        <item name="fontFamily">@font/tajawal</item>
+        <item name="android:fontFamily">@font/tajawal</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="Shape.Rounded" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">14dp</item>
+    </style>
+    <style name="Shape.Thumb" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
     </style>
 </resources>
