@@ -165,6 +165,15 @@ class FullScreens {
     }
 
     @Test
+    fun videoWithSubs() {
+        val ui = buildUi(paparazzi)
+        ui.b.urlInput.setText("https://youtu.be/sample")
+        ui.showVideo(Samples.video)
+        ui.previewEmbedSubs()
+        paparazzi.snapshot(ui.b.root, "3b_video_subs")
+    }
+
+    @Test
     fun downloads() {
         val ui = buildUi(paparazzi)
         ui.b.urlInput.setText("https://youtu.be/sample")

@@ -111,6 +111,7 @@ def _record_history(job: Job) -> None:
             "start": s.start,
             "end": s.end,
             "lang": s.lang,
+            "embed_subs": s.embed_subs,
             "label": job.label,
             "size": job.size,
         }
@@ -295,6 +296,7 @@ class JobItem(BaseModel):
     lang: str | None = Field(default=None, max_length=20)
     title: str | None = Field(default=None, max_length=300)
     thumbnail: str | None = Field(default=None, max_length=2000)
+    embed_subs: str | None = Field(default=None, max_length=20)
 
 
 class JobsRequest(BaseModel):
@@ -316,6 +318,7 @@ def _to_spec(item: JobItem) -> JobSpec:
     return JobSpec(
         url=url, kind=item.kind, quality=quality, start=item.start, end=item.end,
         lang=item.lang, title=item.title, thumbnail=thumb,
+        embed_subs=item.embed_subs if item.kind == "video" else None,
     )
 
 

@@ -200,7 +200,7 @@ function showSingle(info) {
     btn.addEventListener("click", () => {
       try {
         const range = trimRange();
-        const item = opt.type === "audio" ? { kind: "audio" } : { kind: "video", quality: opt.id };
+        const item = opt.type === "audio" ? { kind: "audio" } : { kind: "video", quality: opt.id, embed_subs: embedLang() };
         startJobs([{ ...base(info), ...item, ...range }], true);
       } catch (err) {
         $("extras").open = true;
@@ -214,8 +214,10 @@ function showSingle(info) {
   $("subsLang").replaceChildren(...subs.map((s) => el("option", { value: s.code, textContent: s.name })));
   const ar = subs.find((s) => s.code.startsWith("ar"));
   if (ar) $("subsLang").value = ar.code;
-  $("subsLang").hidden = $("subsBtn").hidden = !subs.length;
+  $("subsLang").hidden = $("subsMode").hidden = !subs.length;
   $("noSubs").hidden = !!subs.length;
+  document.querySelector('input[name="subsMode"][value="none"]').checked = true;
+  updateSubsMode();
   $("thumbBlock").hidden = !info.has_thumbnail;
   $("extras").open = false;
 
@@ -225,6 +227,23 @@ function showSingle(info) {
 function base(info) {
   return { url: info.webpage_url || info.url || current.url, title: info.title, thumbnail: info.thumbnail || null };
 }
+
+function subsMode() {
+  return document.querySelector('input[name="subsMode"]:checked')?.value || "none";
+}
+function embedLang() {
+  return subsMode() === "embed" && current?.subtitles?.length ? $("subsLang").value : null;
+}
+function updateSubsMode() {
+  const mode = subsMode();
+  const hint = $("subsHint");
+  hint.hidden = mode === "none" || !(current?.subtitles?.length);
+  hint.textContent = mode === "embed"
+    ? "اختر الجودة من فوق، والترجمة بتنحط داخل الفيديو. تقدر تشغّلها أو تطفيها من المشغّل (VLC مثلاً)."
+    : "الترجمة بتنزل ملف لحالها (SRT)، بدون الفيديو.";
+  $("subsBtn").hidden = mode !== "file" || !(current?.subtitles?.length);
+}
+document.querySelectorAll('input[name="subsMode"]').forEach((r) => r.addEventListener("change", updateSubsMode));
 
 $("subsBtn").addEventListener("click", () => {
   startJobs([{ ...base(current), kind: "subs", lang: $("subsLang").value }], true);
@@ -390,7 +409,7 @@ function renderJobs() {
 
 function retry(j) {
   removeJob(j.id);
-  startJobs([{ url: j.url, kind: j.kind, quality: j.quality, start: j.start, end: j.end, lang: j.lang, title: j.title, thumbnail: j.thumbnail }], true);
+  startJobs([{ url: j.url, kind: j.kind, quality: j.quality, start: j.start, end: j.end, lang: j.lang, embed_subs: j.embed_subs, title: j.title, thumbnail: j.thumbnail }], true);
 }
 
 async function removeJob(id) {
@@ -455,7 +474,7 @@ function renderHistory() {
     if (h.thumbnail) img.src = h.thumbnail; else img.style.visibility = "hidden";
     const again = actionBtn("حمّل مرة ثانية", "primary", () => {
       showView("download");
-      startJobs([{ url: h.url, kind: h.kind, quality: h.quality, start: h.start, end: h.end, lang: h.lang, title: h.title, thumbnail: h.thumbnail }], true);
+      startJobs([{ url: h.url, kind: h.kind, quality: h.quality, start: h.start, end: h.end, lang: h.lang, embed_subs: h.embed_subs, title: h.title, thumbnail: h.thumbnail }], true);
     });
     const open = el("a", { className: "btn link", href: h.url, target: "_blank", rel: "noopener noreferrer", textContent: "الرابط" });
     const del = actionBtn("حذف", "link", async () => {

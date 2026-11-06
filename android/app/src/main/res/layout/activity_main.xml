@@ -378,20 +378,69 @@
                                 android:id="@+id/subsBlock"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:gravity="center_vertical"
-                                android:orientation="horizontal">
+                                android:orientation="vertical">
 
                                 <Spinner
                                     android:id="@+id/subsLang"
-                                    android:layout_width="0dp"
-                                    android:layout_height="48dp"
-                                    android:layout_weight="1" />
+                                    android:layout_width="match_parent"
+                                    android:layout_height="48dp" />
+
+                                <com.google.android.material.button.MaterialButtonToggleGroup
+                                    android:id="@+id/subsMode"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="6dp"
+                                    app:checkedButton="@id/subsNone"
+                                    app:selectionRequired="true"
+                                    app:singleSelection="true">
+
+                                    <com.google.android.material.button.MaterialButton
+                                        android:id="@+id/subsNone"
+                                        style="@style/Widget.Material3.Button.OutlinedButton"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:paddingStart="2dp"
+                                        android:paddingEnd="2dp"
+                                        android:text="بدون"
+                                        android:textSize="13sp" />
+
+                                    <com.google.android.material.button.MaterialButton
+                                        android:id="@+id/subsEmbed"
+                                        style="@style/Widget.Material3.Button.OutlinedButton"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1.3"
+                                        android:paddingStart="2dp"
+                                        android:paddingEnd="2dp"
+                                        android:text="مع الفيديو"
+                                        android:textSize="13sp" />
+
+                                    <com.google.android.material.button.MaterialButton
+                                        android:id="@+id/subsFile"
+                                        style="@style/Widget.Material3.Button.OutlinedButton"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1.3"
+                                        android:paddingStart="2dp"
+                                        android:paddingEnd="2dp"
+                                        android:text="ملف منفصل"
+                                        android:textSize="13sp" />
+                                </com.google.android.material.button.MaterialButtonToggleGroup>
+
+                                <TextView
+                                    android:id="@+id/subsHint"
+                                    style="@style/MutedText"
+                                    android:layout_marginTop="6dp"
+                                    android:textSize="13sp" />
 
                                 <com.google.android.material.button.MaterialButton
                                     android:id="@+id/subsBtn"
-                                    android:layout_width="wrap_content"
+                                    android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:text="حمّل SRT" />
+                                    android:layout_marginTop="4dp"
+                                    android:text="حمّل ملف الترجمة (SRT)"
+                                    android:visibility="gone" />
                             </LinearLayout>
 
                             <TextView

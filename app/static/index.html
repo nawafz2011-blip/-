@@ -78,8 +78,14 @@
             <h4>💬 الترجمة</h4>
             <div class="row">
               <select id="subsLang" aria-label="لغة الترجمة"></select>
-              <button type="button" id="subsBtn" class="btn ghost">حمّل الترجمة (SRT)</button>
             </div>
+            <div class="seg" id="subsMode" role="radiogroup" aria-label="طريقة الترجمة">
+              <label><input type="radio" name="subsMode" value="none" checked> بدون</label>
+              <label><input type="radio" name="subsMode" value="embed"> مع الفيديو</label>
+              <label><input type="radio" name="subsMode" value="file"> ملف منفصل</label>
+            </div>
+            <p id="subsHint" class="muted small" hidden></p>
+            <button type="button" id="subsBtn" class="btn ghost" hidden>حمّل ملف الترجمة (SRT)</button>
             <p id="noSubs" class="muted small" hidden>ما فيه ترجمة لهذا الفيديو.</p>
           </div>
 

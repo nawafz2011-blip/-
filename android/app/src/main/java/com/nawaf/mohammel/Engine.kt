@@ -54,6 +54,8 @@ data class JobSpec(
     val lang: String? = null,
     val title: String? = null,
     val thumbnail: String? = null,
+    /** لغة ترجمة تنحط داخل ملف الفيديو نفسه (اختياري). */
+    val embedSubs: String? = null,
 ) {
     val label: String
         get() {
@@ -63,6 +65,7 @@ data class JobSpec(
                 "subs" -> "ترجمة ($lang)"
                 else -> if (quality == "best") "أفضل جودة" else "${quality}p"
             }
+            if (kind == "video" && embedSubs != null) l += " · ترجمة"
             if ((kind == "video" || kind == "audio") && (start != null || end != null)) {
                 l += " · مقطع ${Engine.formatDuration(start ?: 0).ifEmpty { "0:00" }}–${end?.let { Engine.formatDuration(it) } ?: "النهاية"}"
             }
@@ -74,6 +77,7 @@ data class JobSpec(
         put("start", start ?: JSONObject.NULL); put("end", end ?: JSONObject.NULL)
         put("lang", lang ?: JSONObject.NULL); put("title", title ?: JSONObject.NULL)
         put("thumbnail", thumbnail ?: JSONObject.NULL)
+        put("embedSubs", embedSubs ?: JSONObject.NULL)
     }
 
     companion object {
@@ -86,6 +90,7 @@ data class JobSpec(
             lang = o.optStringOrNull("lang"),
             title = o.optStringOrNull("title"),
             thumbnail = o.optStringOrNull("thumbnail"),
+            embedSubs = o.optStringOrNull("embedSubs"),
         )
     }
 }
@@ -323,6 +328,14 @@ object Engine {
                         val res = spec.quality.toIntOrNull()
                         addOption("-S", (if (res != null) "res:$res" else "res") + ",vcodec:h264,acodec:aac,ext:mp4:m4a")
                         addOption("--merge-output-format", "mp4")
+                        spec.embedSubs?.let { lang ->
+                            // الترجمة تنحط داخل ملف الفيديو، وتقدر تشغّلها أو تطفيها من المشغّل
+                            addOption("--write-subs")
+                            addOption("--write-auto-subs")
+                            addOption("--sub-langs", lang)
+                            addOption("--sub-format", "srt/vtt/best")
+                            addOption("--embed-subs")
+                        }
                     }
                 }
                 if (spec.kind == "video" || spec.kind == "audio") {

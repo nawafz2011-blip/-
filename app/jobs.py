@@ -32,6 +32,7 @@ class JobSpec:
     lang: str | None = None  # لغة الترجمة
     title: str | None = None
     thumbnail: str | None = None
+    embed_subs: str | None = None  # لغة ترجمة تنحط داخل ملف الفيديو
 
 
 @dataclass
@@ -70,6 +71,7 @@ class Job:
             start=spec["start"],
             end=spec["end"],
             lang=spec["lang"],
+            embed_subs=spec["embed_subs"],
             title=self.title or spec["title"],
             thumbnail=self.thumbnail or spec["thumbnail"],
         )
@@ -93,6 +95,8 @@ def make_label(spec: JobSpec) -> str:
         label = f"ترجمة ({spec.lang})"
     else:
         label = "أفضل جودة" if spec.quality == "best" else f"{spec.quality}p"
+        if spec.embed_subs:
+            label += " · ترجمة"
     if spec.kind in ("video", "audio") and (spec.start is not None or spec.end is not None):
         label += f" · مقطع {fmt_time(spec.start or 0)}–{fmt_time(spec.end) or 'النهاية'}"
     return label
@@ -186,6 +190,13 @@ class JobManager:
             # نفضّل H.264 + AAC لأنها تشتغل على كل الأجهزة. 4K و8K ما لها H.264 في يوتيوب.
             opts["format_sort"] = ([f"res:{res}"] if res else ["res"]) + ["vcodec:h264", "acodec:aac", "ext:mp4:m4a"]
             opts["merge_output_format"] = "mp4"
+            if spec.embed_subs:
+                # الترجمة تنحط داخل ملف الفيديو، وتقدر تشغّلها أو تطفيها من المشغّل
+                opts["writesubtitles"] = True
+                opts["writeautomaticsub"] = True
+                opts["subtitleslangs"] = [spec.embed_subs]
+                opts["subtitlesformat"] = "srt/vtt/best"
+                opts["postprocessors"] = [{"key": "FFmpegEmbedSubtitle", "already_have_subtitle": False}]
         elif spec.kind == "thumb":
             opts["skip_download"] = True
             opts["writethumbnail"] = True

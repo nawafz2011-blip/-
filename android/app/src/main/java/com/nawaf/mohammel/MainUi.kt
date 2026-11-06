@@ -74,6 +74,7 @@ class MainUi(
 
         b.trimChip.setOnClickListener { togglePanel(b.trimPanel) }
         b.subsChip.setOnClickListener { togglePanel(b.subsPanel) }
+        b.subsMode.addOnButtonCheckedListener { _, _, _ -> updateSubsMode() }
         b.subsBtn.setOnClickListener {
             val v = video ?: return@setOnClickListener
             val lang = v.subtitles.getOrNull(b.subsLang.selectedItemPosition)?.code ?: return@setOnClickListener
@@ -123,7 +124,34 @@ class MainUi(
         b.subsPanel.isVisible = false
         panel.isVisible = open
         setChipActive(b.trimChip, b.trimPanel.isVisible)
-        setChipActive(b.subsChip, b.subsPanel.isVisible)
+        setChipActive(b.subsChip, b.subsPanel.isVisible || embedLang() != null)
+    }
+
+    /** لغة الترجمة اللي تنحط داخل الفيديو، أو null. */
+    private fun embedLang(): String? {
+        val v = video ?: return null
+        if (b.subsMode.checkedButtonId != R.id.subsEmbed) return null
+        return v.subtitles.getOrNull(b.subsLang.selectedItemPosition)?.code
+    }
+
+    private fun updateSubsMode() {
+        when (b.subsMode.checkedButtonId) {
+            R.id.subsEmbed -> {
+                b.subsHint.text = "اختر الجودة من فوق، والترجمة بتنحط داخل الفيديو. تقدر تشغّلها أو تطفيها من المشغّل."
+                b.subsHint.isVisible = true
+                b.subsBtn.isVisible = false
+            }
+            R.id.subsFile -> {
+                b.subsHint.text = "الترجمة بتنزل ملف لحالها (SRT)، بدون الفيديو."
+                b.subsHint.isVisible = true
+                b.subsBtn.isVisible = true
+            }
+            else -> {
+                b.subsHint.isVisible = false
+                b.subsBtn.isVisible = false
+            }
+        }
+        setChipActive(b.subsChip, b.subsPanel.isVisible || embedLang() != null)
     }
 
     private fun setChipActive(chip: MaterialButton, active: Boolean) {
@@ -189,6 +217,8 @@ class MainUi(
         b.noSubs.isVisible = v.subtitles.isEmpty()
         b.subsLang.adapter = ArrayAdapter(ctx, android.R.layout.simple_spinner_dropdown_item, v.subtitles.map { it.name })
         v.subtitles.indexOfFirst { it.code.startsWith("ar") }.takeIf { it >= 0 }?.let { b.subsLang.setSelection(it) }
+        b.subsMode.check(R.id.subsNone)
+        updateSubsMode()
         b.thumbBtn.isVisible = v.thumbnail != null
         b.trimPanel.isVisible = false
         b.subsPanel.isVisible = false
@@ -254,9 +284,16 @@ class MainUi(
                     end = end,
                     title = v.title,
                     thumbnail = v.thumbnail,
+                    embedSubs = if (opt.isAudio) null else embedLang(),
                 )
             )
         )
+    }
+
+    /** للمعاينة: يفتح الترجمة على وضع (مع الفيديو). */
+    fun previewEmbedSubs() {
+        if (!b.subsPanel.isVisible) togglePanel(b.subsPanel)
+        b.subsMode.check(R.id.subsEmbed)
     }
 
     // ------------------------------------------------------------ قائمة تشغيل وكذا رابط
