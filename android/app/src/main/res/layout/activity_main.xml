@@ -741,6 +741,7 @@
                 app:boxCornerRadiusTopStart="22dp"
                 app:boxStrokeWidth="0dp"
                 app:boxStrokeWidthFocused="0dp"
+                android:hint="ابحث أو اكتب رابط"
                 app:hintEnabled="false"
                 app:startIconDrawable="@drawable/ic_search"
                 app:startIconTint="@color/muted">
@@ -814,6 +815,7 @@
                     <GridLayout
                         android:id="@+id/webShortcuts"
                         android:layout_width="match_parent"
+                        android:layoutDirection="rtl"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="20dp"
                         android:columnCount="3"
