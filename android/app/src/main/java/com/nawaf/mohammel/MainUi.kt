@@ -68,7 +68,7 @@ class MainUi(
         b.clearHistory.setOnClickListener { actions.clearHistory() }
 
         b.bottomNav.setOnItemSelectedListener { item ->
-            applyTab(item.itemId == R.id.nav_history)
+            applyTab(Tab.fromMenu(item.itemId))
             true
         }
 
@@ -105,17 +105,108 @@ class MainUi(
         b.batchGo.setOnClickListener { actions.enqueue(batchUrls.map { presetSpec(it, b.batchQuality) }) }
     }
 
-    /** يغيّر التبويب من الكود (يحدّث الشريط السفلي والمحتوى). */
-    fun showTab(history: Boolean) {
-        val id = if (history) R.id.nav_history else R.id.nav_download
-        if (b.bottomNav.selectedItemId != id) b.bottomNav.selectedItemId = id // يستدعي applyTab
-        applyTab(history)
+    enum class Tab(val menuId: Int) {
+        DOWNLOAD(R.id.nav_download), BROWSER(R.id.nav_browser), HISTORY(R.id.nav_history);
+
+        companion object {
+            fun fromMenu(id: Int) = entries.firstOrNull { it.menuId == id } ?: DOWNLOAD
+        }
     }
 
-    private fun applyTab(history: Boolean) {
-        b.downloadView.isVisible = !history
-        b.historyView.isVisible = history
+    /** يتنادى لما يتغيّر التبويب (عشان الـ Activity تجهّز المتصفح أول مرة). */
+    var onTabChanged: ((Tab) -> Unit)? = null
+
+    var currentTab: Tab = Tab.DOWNLOAD
+        private set
+
+    /** يغيّر التبويب من الكود (يحدّث الشريط السفلي والمحتوى). */
+    fun showTab(tab: Tab) {
+        if (b.bottomNav.selectedItemId != tab.menuId) b.bottomNav.selectedItemId = tab.menuId // يستدعي applyTab
+        applyTab(tab)
+    }
+
+    private fun applyTab(tab: Tab) {
+        currentTab = tab
+        b.scroll.isVisible = tab != Tab.BROWSER
+        b.browserView.isVisible = tab == Tab.BROWSER
+        b.downloadView.isVisible = tab == Tab.DOWNLOAD
+        b.historyView.isVisible = tab == Tab.HISTORY
         b.scroll.scrollTo(0, 0)
+        onTabChanged?.invoke(tab)
+    }
+
+    // ------------------------------------------------------------ المتصفح (الصفحة الأولى)
+    data class Site(val name: String, val url: String, val symbol: String, val color: Int)
+
+    val sites = listOf(
+        Site("يوتيوب", "https://m.youtube.com", "▶", 0xFFFF0033.toInt()),
+        Site("تيك توك", "https://www.tiktok.com", "♪", 0xFF111111.toInt()),
+        Site("إنستقرام", "https://www.instagram.com", "◎", 0xFFD62976.toInt()),
+        Site("X", "https://x.com", "𝕏", 0xFF000000.toInt()),
+        Site("فيسبوك", "https://m.facebook.com/watch", "f", 0xFF1877F2.toInt()),
+        Site("سناب", "https://www.snapchat.com/spotlight", "👻", 0xFFFFC800.toInt()),
+        Site("ساوند كلاود", "https://m.soundcloud.com", "☁", 0xFFFF5500.toInt()),
+        Site("ريديت", "https://www.reddit.com", "r", 0xFFFF4500.toInt()),
+        Site("Google", "https://www.google.com", "G", 0xFF4285F4.toInt()),
+    )
+
+    /** يبني اختصارات المواقع. onOpen ينفتح فيه الرابط في المتصفح. */
+    fun setupBrowserStart(onOpen: (String) -> Unit) {
+        val grid = b.webShortcuts
+        grid.removeAllViews()
+        val cell = (ctx.resources.displayMetrics.widthPixels - dp(32)) / 3
+        for (site in sites) {
+            val box = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = android.view.Gravity.CENTER
+                setPadding(0, dp(10), 0, dp(10))
+                isClickable = true
+                isFocusable = true
+                background = ContextCompat.getDrawable(ctx, android.R.drawable.list_selector_background)
+                setOnClickListener { onOpen(site.url) }
+            }
+            val circle = TextView(ctx).apply {
+                text = site.symbol
+                textSize = 24f
+                setTextColor(if (site.color == 0xFFFFC800.toInt()) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+                gravity = android.view.Gravity.CENTER
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.OVAL
+                    setColor(site.color)
+                }
+                layoutParams = LinearLayout.LayoutParams(dp(58), dp(58))
+            }
+            val name = TextView(ctx).apply {
+                text = site.name
+                textSize = 13f
+                setTextColor(color(R.color.text))
+                gravity = android.view.Gravity.CENTER
+                setPadding(0, dp(6), 0, 0)
+            }
+            box.addView(circle)
+            box.addView(name)
+            grid.addView(box, android.widget.GridLayout.LayoutParams().apply { width = cell })
+        }
+    }
+
+    /** true = صفحة الاختصارات، false = صفحة موقع مفتوحة. */
+    fun showBrowserStart(start: Boolean) {
+        b.webStart.isVisible = start
+        b.webContainer.isVisible = !start
+        b.webNav.isVisible = !start
+        b.webDownload.isVisible = !start
+        if (start) {
+            b.webAddress.setText("")
+            b.webProgress.isVisible = false
+        }
+    }
+
+    /** يغيّر شكل زر التحميل حسب الصفحة: فيديو واضح أو صفحة عادية. */
+    fun setBrowserPage(url: String, isVideo: Boolean) {
+        if (!b.webAddress.hasFocus()) b.webAddress.setText(url)
+        b.webDownload.text = if (isVideo) "حمّل هذا الفيديو" else "حمّل من هذي الصفحة"
+        b.webDownload.backgroundTintList = ColorStateList.valueOf(color(if (isVideo) R.color.accent else R.color.muted))
+        if (isVideo) b.webDownload.extend() else b.webDownload.shrink()
     }
 
     private fun togglePanel(panel: View) {
@@ -447,7 +538,7 @@ class MainUi(
                 box.addView(smallButton("فتح", Kind.TONAL) { History.uriOf(h)?.let { actions.openFile(it, h.mime ?: "*/*") } })
             }
             box.addView(smallButton("حمّل", Kind.FILLED) {
-                showTab(false)
+                showTab(Tab.DOWNLOAD)
                 actions.enqueue(listOf(h.spec))
             })
             b.historyList.addView(v)

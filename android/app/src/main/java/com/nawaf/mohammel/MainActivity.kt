@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -21,6 +22,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import coil.load
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.nawaf.mohammel.databinding.ActivityMainBinding
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job as CoJob
@@ -28,6 +30,7 @@ import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity(), UiActions {
     private lateinit var ui: MainUi
+    private lateinit var browser: Browser
     private val b: ActivityMainBinding get() = ui.b
     private var fetchJob: CoJob? = null
     private var pendingSpecs: List<JobSpec>? = null
@@ -60,6 +63,31 @@ class MainActivity : AppCompatActivity(), UiActions {
         }
         ui.setup(BuildConfig.VERSION_NAME)
 
+        browser = Browser(this, ui) { url ->
+            // زر (حمّل) في المتصفح: ننقل الرابط لصفحة التحميل ونبحث عنه
+            ui.showTab(MainUi.Tab.DOWNLOAD)
+            b.urlInput.setText(url)
+            search()
+        }
+        browser.setup()
+
+        // زر الرجوع: يرجع صفحة في المتصفح، أو يرجع لتبويب التحميل
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                when {
+                    ui.currentTab == MainUi.Tab.BROWSER && browser.handleBack() -> Unit
+                    ui.currentTab != MainUi.Tab.DOWNLOAD -> ui.showTab(MainUi.Tab.DOWNLOAD)
+                    else -> {
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
+                        isEnabled = true
+                    }
+                }
+            }
+        })
+
+        if (savedInstanceState == null) showWelcome()
+
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
@@ -87,6 +115,33 @@ class MainActivity : AppCompatActivity(), UiActions {
         handleShare(intent)
     }
 
+    /** رسالة الترحيب كل ما ينفتح التطبيق. */
+    private fun showWelcome() {
+        val view = layoutInflater.inflate(R.layout.dialog_welcome, null)
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setView(view)
+            .setCancelable(true)
+            .create()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        view.findViewById<android.view.View>(R.id.welcomeOk).setOnClickListener { dialog.dismiss() }
+        dialog.show()
+    }
+
+    override fun onPause() {
+        browser.onPause()
+        super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        browser.onResume()
+    }
+
+    override fun onDestroy() {
+        browser.destroy()
+        super.onDestroy()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleShare(intent)
@@ -97,7 +152,7 @@ class MainActivity : AppCompatActivity(), UiActions {
         if (intent?.action != Intent.ACTION_SEND) return
         val urls = Engine.extractUrls(intent.getStringExtra(Intent.EXTRA_TEXT))
         if (urls.isEmpty()) return
-        ui.showTab(false)
+        ui.showTab(MainUi.Tab.DOWNLOAD)
         b.urlInput.setText(urls.joinToString("\n"))
         search()
     }

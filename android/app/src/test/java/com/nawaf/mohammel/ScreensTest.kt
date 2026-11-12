@@ -135,10 +135,36 @@ class PhoneScreens {
     }
 
     @Test
+    fun browser() {
+        val ui = buildUi(paparazzi)
+        ui.setupBrowserStart { }
+        ui.showBrowserStart(true)
+        ui.showTab(MainUi.Tab.BROWSER)
+        paparazzi.snapshot(ui.b.root, "8_browser")
+    }
+
+    @Test
+    fun welcome() {
+        val ui = buildUi(paparazzi)
+        val dim = android.widget.FrameLayout(paparazzi.context)
+        dim.addView(ui.b.root)
+        val shade = android.view.View(paparazzi.context).apply { setBackgroundColor(0x99000000.toInt()) }
+        dim.addView(shade)
+        val card = paparazzi.layoutInflater.inflate(R.layout.dialog_welcome, dim, false)
+        val lp = android.widget.FrameLayout.LayoutParams(
+            android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+            android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+            android.view.Gravity.CENTER,
+        ).apply { leftMargin = 64; rightMargin = 64 }
+        dim.addView(card, lp)
+        paparazzi.snapshot(dim, "0_welcome")
+    }
+
+    @Test
     fun history() {
         val ui = buildUi(paparazzi)
         ui.renderHistory(Samples.history, Samples.now)
-        ui.showTab(true)
+        ui.showTab(MainUi.Tab.HISTORY)
         paparazzi.snapshot(ui.b.root, "6_history")
     }
 }
