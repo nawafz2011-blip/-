@@ -10,6 +10,11 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
 
+    <!-- عشان نعرف إذا تطبيق «عزل» مثبت -->
+    <queries>
+        <package android:name="com.azl.app" />
+    </queries>
+
     <application
         android:name=".App"
         android:allowBackup="false"

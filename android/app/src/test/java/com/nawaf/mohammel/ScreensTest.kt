@@ -99,6 +99,9 @@ object NoActions : UiActions {
     override fun clearHistory() {}
     override fun deleteHistory(id: String) {}
     override fun openUpdate() {}
+    override fun chooseQuality(spec: JobSpec) {}
+    override fun musicFromLink() {}
+    override fun setAlwaysRemoveMusic(on: Boolean) {}
 }
 
 fun buildUi(p: Paparazzi): MainUi {
@@ -158,6 +161,23 @@ class PhoneScreens {
         ).apply { leftMargin = 64; rightMargin = 64 }
         dim.addView(card, lp)
         paparazzi.snapshot(dim, "0_welcome")
+    }
+
+    @Test
+    fun musicSheet() {
+        val ui = buildUi(paparazzi)
+        ui.b.urlInput.setText("https://youtu.be/sample")
+        ui.showVideo(Samples.video)
+        val root = android.widget.FrameLayout(paparazzi.context)
+        root.addView(ui.b.root)
+        root.addView(android.view.View(paparazzi.context).apply { setBackgroundColor(0x99000000.toInt()) })
+        val sheet = paparazzi.layoutInflater.inflate(R.layout.sheet_music, root, false)
+        root.addView(sheet, android.widget.FrameLayout.LayoutParams(
+            android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+            android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+            android.view.Gravity.BOTTOM,
+        ))
+        paparazzi.snapshot(root, "2b_music_sheet")
     }
 
     @Test

@@ -31,6 +31,11 @@ interface UiActions {
     fun clearHistory()
     fun deleteHistory(id: String)
     fun openUpdate()
+    /** اختار جودة لفيديو واحد: الـ Activity تقرر تحمّله أو ترسله لـ «عزل». */
+    fun chooseQuality(spec: JobSpec)
+    /** زر (إزالة الموسيقى من الرابط) تحت خانة الرابط. */
+    fun musicFromLink()
+    fun setAlwaysRemoveMusic(on: Boolean)
 }
 
 /**
@@ -43,6 +48,16 @@ class MainUi(
     private val loadImage: (ImageView, String?) -> Unit,
 ) {
     private val inflater = LayoutInflater.from(ctx)
+    private var bindingMusic = false
+
+    /** حالة خيار (إزالة الموسيقى دائمًا). */
+    var alwaysRemoveMusic: Boolean = false
+        set(value) {
+            field = value
+            bindingMusic = true
+            b.musicSwitch.isChecked = value
+            bindingMusic = false
+        }
     var video: VideoSummary? = null
         private set
     private var playlist: PlaylistSummary? = null
@@ -66,6 +81,10 @@ class MainUi(
         b.updateBanner.setOnClickListener { actions.openUpdate() }
         b.clearDone.setOnClickListener { actions.clearDone() }
         b.clearHistory.setOnClickListener { actions.clearHistory() }
+        b.musicLinkBtn.setOnClickListener { actions.musicFromLink() }
+        b.musicSwitch.setOnCheckedChangeListener { _, on ->
+            if (!bindingMusic) actions.setAlwaysRemoveMusic(on)
+        }
 
         b.bottomNav.setOnItemSelectedListener { item ->
             applyTab(Tab.fromMenu(item.itemId))
@@ -365,8 +384,7 @@ class MainUi(
             setStatus(error, error = true)
             return
         }
-        actions.enqueue(
-            listOf(
+        actions.chooseQuality(
                 JobSpec(
                     url = v.url,
                     kind = if (opt.isAudio) "audio" else "video",
@@ -377,7 +395,6 @@ class MainUi(
                     thumbnail = v.thumbnail,
                     embedSubs = if (opt.isAudio) null else embedLang(),
                 )
-            )
         )
     }
 

@@ -167,6 +167,16 @@
                             app:iconGravity="textStart"
                             app:iconTint="#FFFFFF" />
                     </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/musicLinkBtn"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="🎵 إزالة الموسيقى من الرابط"
+                        android:textColor="#FFFFFF"
+                        android:textSize="14sp" />
                 </LinearLayout>
 
                 <TextView
@@ -259,6 +269,65 @@
                             android:id="@+id/subtitle"
                             style="@style/MutedText"
                             android:layout_marginTop="2dp" />
+
+                        <!-- إزالة الموسيقى -->
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/musicCard"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp"
+                            app:cardBackgroundColor="@color/ok_soft"
+                            app:cardCornerRadius="14dp"
+                            app:cardElevation="0dp"
+                            app:strokeColor="@color/ok"
+                            app:strokeWidth="1.5dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal"
+                                android:padding="12dp">
+
+                                <TextView
+                                    android:layout_width="36dp"
+                                    android:layout_height="36dp"
+                                    android:background="@drawable/ok_circle"
+                                    android:gravity="center"
+                                    android:text="🎵"
+                                    android:textSize="17sp" />
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="10dp"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:text="إزالة الموسيقى دائمًا"
+                                        android:textColor="@color/ok"
+                                        android:textSize="15sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/musicHint"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:text="عند التشغيل يُرسَل كل مقطع إلى «عزل» مباشرة، ويبقى الكلام فقط."
+                                        android:textColor="@color/muted"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+
+                                <com.google.android.material.materialswitch.MaterialSwitch
+                                    android:id="@+id/musicSwitch"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="6dp" />
+                            </LinearLayout>
+                        </com.google.android.material.card.MaterialCardView>
 
                         <TextView
                             style="@style/SectionText"

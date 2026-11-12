@@ -22,6 +22,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import coil.load
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.nawaf.mohammel.databinding.ActivityMainBinding
 import kotlinx.coroutines.CancellationException
@@ -62,6 +63,7 @@ class MainActivity : AppCompatActivity(), UiActions {
             if (url != null) view.load(url) { crossfade(true) } else view.setImageDrawable(null)
         }
         ui.setup(BuildConfig.VERSION_NAME)
+        ui.alwaysRemoveMusic = Azl.alwaysRemove(this)
 
         browser = Browser(this, ui) { url ->
             // زر (حمّل) في المتصفح: ننقل الرابط لصفحة التحميل ونبحث عنه
@@ -242,6 +244,77 @@ class MainActivity : AppCompatActivity(), UiActions {
     }
 
     override fun deleteHistory(id: String) = History.delete(id)
+
+    // ------------------------------------------------------------ إزالة الموسيقى (عزل)
+    override fun chooseQuality(spec: JobSpec) {
+        if (Azl.alwaysRemove(this)) {
+            removeMusic(spec.url)
+            return
+        }
+        showMusicSheet(spec)
+    }
+
+    override fun musicFromLink() {
+        val url = Engine.extractUrls(b.urlInput.text?.toString()).firstOrNull()
+        if (url == null) {
+            ui.setStatus("الصق رابط المقطع أولًا، ثم اضغط (إزالة الموسيقى).", error = true)
+            return
+        }
+        removeMusic(url)
+    }
+
+    override fun setAlwaysRemoveMusic(on: Boolean) {
+        Azl.setAlwaysRemove(this, on)
+        ui.alwaysRemoveMusic = on
+        Toast.makeText(
+            this,
+            if (on) "تم: كل مقطع سيُرسل إلى «عزل» لإزالة الموسيقى." else "تم: سنسألك قبل كل تحميل.",
+            Toast.LENGTH_SHORT,
+        ).show()
+    }
+
+    /** السؤال بعد اختيار الجودة: نزيل الموسيقى أو نحمّل المقطع كما هو. */
+    private fun showMusicSheet(spec: JobSpec) {
+        val view = layoutInflater.inflate(R.layout.sheet_music, null)
+        val sheet = BottomSheetDialog(this)
+        sheet.setContentView(view)
+        sheet.window?.findViewById<android.view.View>(com.google.android.material.R.id.design_bottom_sheet)
+            ?.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+        view.findViewById<android.view.View>(R.id.sheetYes).setOnClickListener {
+            sheet.dismiss()
+            removeMusic(spec.url)
+        }
+        view.findViewById<android.view.View>(R.id.sheetNo).setOnClickListener {
+            sheet.dismiss()
+            enqueue(listOf(spec))
+        }
+        view.findViewById<android.view.View>(R.id.sheetNote).isVisible = !Azl.installed(this)
+        sheet.show()
+    }
+
+    /** يرسل الرابط لـ «عزل». إذا مو مثبت يطلب تحميله. */
+    private fun removeMusic(url: String) {
+        if (!Azl.installed(this)) {
+            MaterialAlertDialogBuilder(this)
+                .setTitle("تطبيق «عزل» غير مثبّت")
+                .setMessage("لإزالة الموسيقى تحتاج تطبيق «عزل». حمِّله وثبِّته، ثم ارجع واضغط الزر مرة أخرى.")
+                .setPositiveButton("حمِّل «عزل»") { _, _ -> Azl.openDownloadPage(this) }
+                .setNegativeButton("إلغاء", null)
+                .show()
+            return
+        }
+        if (Azl.countAndShouldTip(this)) {
+            // المستخدم يستخدمها كثير: نعلّمه الاختصار
+            MaterialAlertDialogBuilder(this)
+                .setTitle("💡 اختصار")
+                .setMessage("لاحظنا أنك تزيل الموسيقى كثيرًا.\n\nفي المرة القادمة يمكنك فتح تطبيق «عزل» مباشرة ولصق الرابط فيه، دون المرور على «محمّل».")
+                .setPositiveButton("حسنًا، تابِع") { _, _ -> Azl.send(this, url) }
+                .setCancelable(false)
+                .show()
+            return
+        }
+        Azl.send(this, url)
+    }
 
     override fun openUpdate() {
         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(UpdateChecker.DOWNLOAD_URL)))
