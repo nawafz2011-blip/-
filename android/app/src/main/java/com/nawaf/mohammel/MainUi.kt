@@ -36,6 +36,10 @@ interface UiActions {
     /** زر (إزالة الموسيقى من الرابط) تحت خانة الرابط. */
     fun musicFromLink()
     fun setAlwaysRemoveMusic(on: Boolean)
+    /** قائمة (⋯) على ملف جاهز: تشغيل، مشاركة، ضغط، MP3. */
+    fun fileOptions(uri: Uri, mime: String, title: String)
+    /** أدوات من صفحة التحميل: يختار فيديو من الجوال. kind = compress | tomp3 */
+    fun pickForTool(kind: String)
 }
 
 /**
@@ -82,6 +86,10 @@ class MainUi(
         b.clearDone.setOnClickListener { actions.clearDone() }
         b.clearHistory.setOnClickListener { actions.clearHistory() }
         b.musicLinkBtn.setOnClickListener { actions.musicFromLink() }
+        b.toolCompress.setOnClickListener { actions.pickForTool("compress") }
+        b.toolMp3.setOnClickListener { actions.pickForTool("tomp3") }
+        setChipActive(b.toolCompress, false)
+        setChipActive(b.toolMp3, false)
         b.musicSwitch.setOnCheckedChangeListener { _, on ->
             if (!bindingMusic) actions.setAlwaysRemoveMusic(on)
         }
@@ -488,6 +496,8 @@ class MainUi(
         }
         v.findViewById<TextView>(R.id.jobTitle).text = j.title
         v.findViewById<TextView>(R.id.jobLabel).text = iso(j.spec.label)
+        // الضغط على بطاقة جاهزة يشغّلها داخل التطبيق
+        v.setOnClickListener { j.saved?.let { actions.openFile(it.uri, it.mime) } }
         val meta = v.findViewById<TextView>(R.id.jobMeta)
         meta.text = iso(jobMeta(j))
         meta.setTextColor(
@@ -515,7 +525,8 @@ class MainUi(
                     actionsBox.addView(smallButton("إلغاء", Kind.TONAL) { actions.cancel(j.id) })
                 JobStatus.DONE -> {
                     actionsBox.addView(smallButton("إزالة", Kind.TEXT) { actions.removeJob(j.id) })
-                    actionsBox.addView(smallButton("فتح", Kind.FILLED) { j.saved?.let { actions.openFile(it.uri, it.mime) } })
+                    actionsBox.addView(smallButton("⋯", Kind.TONAL) { j.saved?.let { actions.fileOptions(it.uri, it.mime, j.title) } })
+                    actionsBox.addView(smallButton("▶ تشغيل", Kind.FILLED) { j.saved?.let { actions.openFile(it.uri, it.mime) } })
                 }
                 JobStatus.ERROR, JobStatus.CANCELED -> {
                     actionsBox.addView(smallButton("إزالة", Kind.TEXT) { actions.removeJob(j.id) })
@@ -542,6 +553,7 @@ class MainUi(
             loadImage(v.findViewById(R.id.jobThumb), h.spec.thumbnail)
             v.findViewById<TextView>(R.id.jobTitle).text = h.title
             v.findViewById<TextView>(R.id.jobLabel).text = iso(h.label)
+            v.setOnClickListener { History.uriOf(h)?.let { actions.openFile(it, h.mime ?: "*/*") } }
             v.findViewById<ProgressBar>(R.id.jobBar).isVisible = false
             v.findViewById<TextView>(R.id.jobMeta).text = iso(
                 listOf(
@@ -552,7 +564,8 @@ class MainUi(
             val box = v.findViewById<LinearLayout>(R.id.jobActions)
             box.addView(smallButton("حذف", Kind.TEXT) { actions.deleteHistory(h.id) })
             if (h.uri != null) {
-                box.addView(smallButton("فتح", Kind.TONAL) { History.uriOf(h)?.let { actions.openFile(it, h.mime ?: "*/*") } })
+                box.addView(smallButton("⋯", Kind.TONAL) { History.uriOf(h)?.let { actions.fileOptions(it, h.mime ?: "*/*", h.title) } })
+                box.addView(smallButton("▶", Kind.TONAL) { History.uriOf(h)?.let { actions.openFile(it, h.mime ?: "*/*") } })
             }
             box.addView(smallButton("حمّل", Kind.FILLED) {
                 showTab(Tab.DOWNLOAD)

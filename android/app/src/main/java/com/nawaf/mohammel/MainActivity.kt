@@ -228,11 +228,90 @@ class MainActivity : AppCompatActivity(), UiActions {
     override fun clearDone() = JobQueue.clearFinished()
 
     override fun openFile(uri: Uri, mime: String) {
+        // الفيديو والصوت والصور تنفتح داخل التطبيق
+        if (PlayerActivity.canPlay(mime)) {
+            startActivity(PlayerActivity.intent(this, uri, mime, displayName(uri) ?: ""))
+            return
+        }
         try {
             startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, mime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
         } catch (_: Throwable) {
             Toast.makeText(this, "ما قدرنا نفتح الملف. يمكن انحذف، أو ما فيه تطبيق يفتحه.", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun displayName(uri: Uri): String? = try {
+        contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0)?.substringBeforeLast('.') else null
+        }
+    } catch (_: Throwable) {
+        null
+    }
+
+    // ------------------------------------------------------------ الأدوات (ضغط، MP3)
+    private var pendingTool: String? = null
+
+    private val pickVideo = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val kind = pendingTool
+        pendingTool = null
+        if (uri == null || kind == null) return@registerForActivityResult
+        try {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (_: Throwable) {
+            // بعض التطبيقات ما تسمح، نكمل عادي
+        }
+        startTool(kind, uri, displayName(uri) ?: "فيديو")
+    }
+
+    override fun pickForTool(kind: String) {
+        pendingTool = kind
+        pickVideo.launch(arrayOf("video/*"))
+    }
+
+    override fun fileOptions(uri: Uri, mime: String, title: String) {
+        val video = mime.startsWith("video")
+        val items = mutableListOf("▶  تشغيل", "📤  مشاركة")
+        if (video) {
+            items += "🗜️  ضغط الفيديو"
+            items += "🎵  تحويل إلى MP3"
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(title)
+            .setItems(items.toTypedArray()) { _, which ->
+                when (which) {
+                    0 -> openFile(uri, mime)
+                    1 -> startActivity(
+                        Intent.createChooser(
+                            Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM, uri)
+                                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
+                            "مشاركة",
+                        )
+                    )
+                    2 -> startTool("compress", uri, title)
+                    3 -> startTool("tomp3", uri, title)
+                }
+            }
+            .show()
+    }
+
+    private fun startTool(kind: String, uri: Uri, title: String) {
+        if (kind == "tomp3") {
+            enqueue(listOf(JobSpec(uri.toString(), kind = "tomp3", title = title)))
+            return
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle("🗜️ ضغط الفيديو")
+            .setItems(
+                arrayOf(
+                    "حجم أصغر، وجودة جيدة (720p)",
+                    "حجم أصغر بكثير (480p)، مناسب للواتساب",
+                )
+            ) { _, which ->
+                val q = if (which == 1) "tiny" else "small"
+                enqueue(listOf(JobSpec(uri.toString(), kind = "compress", quality = q, title = title)))
+            }
+            .setNegativeButton("إلغاء", null)
+            .show()
     }
 
     override fun clearHistory() {

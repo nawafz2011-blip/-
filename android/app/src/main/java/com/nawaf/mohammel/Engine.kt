@@ -45,6 +45,9 @@ data class PlaylistSummary(
 ) : FetchResult
 
 /** وش نحمّل بالضبط. kind = video | audio | thumb | subs */
+/** أنواع الأدوات اللي تشتغل على ملف في الجوال (مو رابط من الإنترنت). */
+val TOOL_KINDS = setOf("compress", "tomp3")
+
 data class JobSpec(
     val url: String,
     val kind: String = "video",
@@ -60,6 +63,8 @@ data class JobSpec(
     val label: String
         get() {
             var l = when (kind) {
+                "compress" -> if (quality == "tiny") "ضغط الفيديو · 480p" else "ضغط الفيديو · 720p"
+                "tomp3" -> "تحويل إلى MP3"
                 "audio" -> "صوت MP3"
                 "thumb" -> "صورة الغلاف"
                 "subs" -> "ترجمة ($lang)"
@@ -378,6 +383,9 @@ object Engine {
             else -> "video/mp4"
         }
     }
+
+    /** يحفظ ملف جاهز في المعرض/الموسيقى/الصور/التنزيلات. */
+    fun saveFile(context: Context, file: File, kind: String): SavedFile = save(context, file, kind)
 
     private fun save(context: Context, file: File, kind: String): SavedFile {
         val mime = mimeOf(file, kind)

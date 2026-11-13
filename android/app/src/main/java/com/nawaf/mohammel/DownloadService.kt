@@ -80,7 +80,7 @@ class DownloadService : Service() {
 
     private fun runJob(job: Job) {
         try {
-            val saved = Engine.download(this, job.spec, job.id) { p, eta ->
+            val progress = { p: Float, eta: Long ->
                 JobQueue.update(job.id) { it.copy(progress = p, etaSeconds = eta) }
                 val now = System.currentTimeMillis()
                 if (now - lastNotify > 700) {
@@ -88,11 +88,18 @@ class DownloadService : Service() {
                     notify(progressNotification(job.title, p, eta))
                 }
             }
+            val saved = if (job.spec.kind in TOOL_KINDS) {
+                Tools.run(this, job.spec, job.id, progress)
+            } else {
+                Engine.download(this, job.spec, job.id, progress)
+            }
             JobQueue.update(job.id) { it.copy(status = JobStatus.DONE, progress = 100f, saved = saved) }
             JobQueue.get(job.id)?.let { History.add(it) }
             doneCount++
+            notify(fileReadyNotification(job, saved), job.id.hashCode())
         } catch (t: Throwable) {
-            val canceled = t is YoutubeDL.CanceledException || JobQueue.get(job.id)?.status == JobStatus.CANCELED
+            val canceled = t is YoutubeDL.CanceledException || t is Tools.Canceled ||
+                JobQueue.get(job.id)?.status == JobStatus.CANCELED
             if (canceled) {
                 JobQueue.update(job.id) { it.copy(status = JobStatus.CANCELED) }
             } else {
@@ -105,19 +112,14 @@ class DownloadService : Service() {
     private fun cancelJob(id: String) {
         if (JobQueue.cancel(id)) {
             JobQueue.update(id) { it.copy(status = JobStatus.CANCELED) }
-            YoutubeDL.getInstance().destroyProcessById(id)
+            if (!Tools.cancel(id)) YoutubeDL.getInstance().destroyProcessById(id)
         }
     }
 
     private fun finish() {
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-        if (doneCount + failCount > 0) {
-            val text = buildString {
-                if (doneCount > 0) append("خلص $doneCount تحميل")
-                if (failCount > 0) { if (isNotEmpty()) append(" · "); append("فشل $failCount") }
-            }
-            notify(doneNotification(text), DONE_ID)
-        }
+        // كل ملف يخلص له إشعار لحاله (فيه تشغيل ومشاركة)، وهنا بس نبلّغ عن اللي فشل
+        if (failCount > 0) notify(doneNotification("ما قدرنا نحمّل $failCount، افتح التطبيق للتفاصيل."), DONE_ID)
         stopSelf()
     }
 
@@ -154,6 +156,34 @@ class DownloadService : Service() {
             b.setContentText(progressText(progress, eta)).setProgress(100, progress.toInt(), false)
         }
         return b.build()
+    }
+
+    /** إشعار "خلص التحميل" مع زر تشغيل (داخل التطبيق) وزر مشاركة. */
+    private fun fileReadyNotification(job: Job, file: SavedFile): Notification {
+        val code = job.id.hashCode()
+        val play = PendingIntent.getActivity(
+            this, code, PlayerActivity.intent(this, file.uri, file.mime, job.title),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val share = PendingIntent.getActivity(
+            this, code + 1,
+            Intent.createChooser(
+                Intent(Intent.ACTION_SEND).setType(file.mime).putExtra(Intent.EXTRA_STREAM, file.uri)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
+                "مشاركة",
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val playable = file.mime.startsWith("video") || file.mime.startsWith("audio") || file.mime.startsWith("image")
+        return NotificationCompat.Builder(this, App.CHANNEL_DONE)
+            .setSmallIcon(R.drawable.ic_notify)
+            .setContentTitle("✓ خلص: " + job.title)
+            .setContentText(job.spec.label + " · " + Engine.formatSize(file.size))
+            .setAutoCancel(true)
+            .setContentIntent(if (playable) play else openAppIntent())
+            .apply { if (playable) addAction(0, "▶ تشغيل", play) }
+            .addAction(0, "مشاركة", share)
+            .build()
     }
 
     private fun doneNotification(text: String): Notification =

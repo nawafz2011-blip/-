@@ -102,6 +102,8 @@ object NoActions : UiActions {
     override fun chooseQuality(spec: JobSpec) {}
     override fun musicFromLink() {}
     override fun setAlwaysRemoveMusic(on: Boolean) {}
+    override fun fileOptions(uri: Uri, mime: String, title: String) {}
+    override fun pickForTool(kind: String) {}
 }
 
 fun buildUi(p: Paparazzi): MainUi {

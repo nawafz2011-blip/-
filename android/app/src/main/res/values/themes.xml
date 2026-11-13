@@ -31,6 +31,14 @@
         <item name="shapeAppearanceCornerMedium">@style/Shape.Rounded</item>
     </style>
 
+    <style name="Theme.Mohammel.Player" parent="Theme.Mohammel">
+        <item name="android:colorBackground">#000000</item>
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">#000000</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
     <style name="Text.Body" parent="TextAppearance.Material3.BodyLarge">
         <item name="fontFamily">@font/tajawal</item>
         <item name="android:fontFamily">@font/tajawal</item>
