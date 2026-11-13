@@ -36,8 +36,8 @@ interface UiActions {
     /** زر (إزالة الموسيقى من الرابط) تحت خانة الرابط. */
     fun musicFromLink()
     fun setAlwaysRemoveMusic(on: Boolean)
-    /** قائمة (⋯) على ملف جاهز: تشغيل، مشاركة، ضغط، MP3. */
-    fun fileOptions(uri: Uri, mime: String, title: String)
+    /** قائمة (⋯) على ملف: مشاركة، ضغط، MP3، وأي خيارات إضافية (حمّل مرة ثانية، حذف...). */
+    fun fileOptions(uri: Uri?, mime: String, title: String, extras: List<Pair<String, () -> Unit>>)
     /** أدوات من صفحة التحميل: يختار فيديو من الجوال. kind = compress | tomp3 */
     fun pickForTool(kind: String)
 }
@@ -522,15 +522,19 @@ class MainUi(
             actionsBox.removeAllViews()
             when (j.status) {
                 JobStatus.QUEUED, JobStatus.RUNNING ->
-                    actionsBox.addView(smallButton("إلغاء", Kind.TONAL) { actions.cancel(j.id) })
+                    actionsBox.addView(pillButton("إلغاء", R.drawable.ic_close, Kind.TONAL) { actions.cancel(j.id) })
                 JobStatus.DONE -> {
-                    actionsBox.addView(smallButton("إزالة", Kind.TEXT) { actions.removeJob(j.id) })
-                    actionsBox.addView(smallButton("⋯", Kind.TONAL) { j.saved?.let { actions.fileOptions(it.uri, it.mime, j.title) } })
-                    actionsBox.addView(smallButton("▶ تشغيل", Kind.FILLED) { j.saved?.let { actions.openFile(it.uri, it.mime) } })
+                    actionsBox.addView(iconButton(R.drawable.ic_more, "خيارات") {
+                        val f = j.saved ?: return@iconButton
+                        actions.fileOptions(f.uri, f.mime, j.title, listOf("✕  إزالة من القائمة" to { actions.removeJob(j.id) }))
+                    })
+                    actionsBox.addView(pillButton("تشغيل", R.drawable.ic_play, Kind.FILLED) {
+                        j.saved?.let { actions.openFile(it.uri, it.mime) }
+                    })
                 }
                 JobStatus.ERROR, JobStatus.CANCELED -> {
-                    actionsBox.addView(smallButton("إزالة", Kind.TEXT) { actions.removeJob(j.id) })
-                    actionsBox.addView(smallButton("إعادة", Kind.TONAL) {
+                    actionsBox.addView(iconButton(R.drawable.ic_close, "إزالة") { actions.removeJob(j.id) })
+                    actionsBox.addView(pillButton("إعادة", R.drawable.ic_replay, Kind.TONAL) {
                         actions.removeJob(j.id)
                         actions.enqueue(listOf(j.spec))
                     })
@@ -562,21 +566,49 @@ class MainUi(
                 ).filter { it.isNotEmpty() }.joinToString(" · ")
             )
             val box = v.findViewById<LinearLayout>(R.id.jobActions)
-            box.addView(smallButton("حذف", Kind.TEXT) { actions.deleteHistory(h.id) })
-            if (h.uri != null) {
-                box.addView(smallButton("⋯", Kind.TONAL) { History.uriOf(h)?.let { actions.fileOptions(it, h.mime ?: "*/*", h.title) } })
-                box.addView(smallButton("▶", Kind.TONAL) { History.uriOf(h)?.let { actions.openFile(it, h.mime ?: "*/*") } })
-            }
-            box.addView(smallButton("حمّل", Kind.FILLED) {
+            val uri = History.uriOf(h)
+            val again = "↻  حمّل مرة ثانية" to {
                 showTab(Tab.DOWNLOAD)
                 actions.enqueue(listOf(h.spec))
+            }
+            val delete = "🗑  حذف من السجل" to { actions.deleteHistory(h.id) }
+            box.addView(iconButton(R.drawable.ic_more, "خيارات") {
+                actions.fileOptions(uri, h.mime ?: "*/*", h.title, listOf(again, delete))
             })
+            if (uri != null) {
+                box.addView(pillButton("تشغيل", R.drawable.ic_play, Kind.FILLED) { actions.openFile(uri, h.mime ?: "*/*") })
+            } else {
+                box.addView(pillButton("حمّل مرة ثانية", R.drawable.ic_replay, Kind.FILLED) { again.second() })
+            }
             b.historyList.addView(v)
         }
     }
 
     // ------------------------------------------------------------ أدوات
     private enum class Kind { FILLED, TONAL, TEXT }
+
+    /** زر مستدير فيه أيقونة ونص (تشغيل، إعادة، إلغاء). */
+    private fun pillButton(label: String, icon: Int, kind: Kind, onClick: () -> Unit): MaterialButton =
+        smallButton(label, kind, onClick).apply {
+            setIconResource(icon)
+            iconSize = dp(18)
+            iconPadding = dp(4)
+            iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START
+            iconTint = ColorStateList.valueOf(currentTextColor)
+            cornerRadius = dp(20)
+            setPadding(dp(16), 0, dp(18), 0)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(40)).apply { marginStart = dp(8) }
+        }
+
+    /** زر أيقونة بس (⋯ أو ✕). */
+    private fun iconButton(icon: Int, desc: String, onClick: () -> Unit): MaterialButton =
+        MaterialButton(ctx, null, com.google.android.material.R.attr.materialIconButtonStyle).apply {
+            setIconResource(icon)
+            iconTint = ColorStateList.valueOf(color(R.color.muted))
+            contentDescription = desc
+            layoutParams = LinearLayout.LayoutParams(dp(44), dp(44))
+            setOnClickListener { onClick() }
+        }
 
     private fun smallButton(label: String, kind: Kind, onClick: () -> Unit): MaterialButton {
         val style = when (kind) {

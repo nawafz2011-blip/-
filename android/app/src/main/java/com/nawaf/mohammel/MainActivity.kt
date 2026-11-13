@@ -268,29 +268,27 @@ class MainActivity : AppCompatActivity(), UiActions {
         pickVideo.launch(arrayOf("video/*"))
     }
 
-    override fun fileOptions(uri: Uri, mime: String, title: String) {
-        val video = mime.startsWith("video")
-        val items = mutableListOf("▶  تشغيل", "📤  مشاركة")
-        if (video) {
-            items += "🗜️  ضغط الفيديو"
-            items += "🎵  تحويل إلى MP3"
+    override fun fileOptions(uri: Uri?, mime: String, title: String, extras: List<Pair<String, () -> Unit>>) {
+        val items = mutableListOf<Pair<String, () -> Unit>>()
+        if (uri != null) {
+            items += "📤  مشاركة" to {
+                startActivity(
+                    Intent.createChooser(
+                        Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM, uri)
+                            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
+                        "مشاركة",
+                    )
+                )
+            }
+            if (mime.startsWith("video")) {
+                items += "🗜️  ضغط الفيديو" to { startTool("compress", uri, title) }
+                items += "🎵  تحويل إلى MP3" to { startTool("tomp3", uri, title) }
+            }
         }
+        items += extras
         MaterialAlertDialogBuilder(this)
             .setTitle(title)
-            .setItems(items.toTypedArray()) { _, which ->
-                when (which) {
-                    0 -> openFile(uri, mime)
-                    1 -> startActivity(
-                        Intent.createChooser(
-                            Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM, uri)
-                                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
-                            "مشاركة",
-                        )
-                    )
-                    2 -> startTool("compress", uri, title)
-                    3 -> startTool("tomp3", uri, title)
-                }
-            }
+            .setItems(items.map { it.first }.toTypedArray()) { _, which -> items[which].second() }
             .show()
     }
 

@@ -102,7 +102,7 @@ object NoActions : UiActions {
     override fun chooseQuality(spec: JobSpec) {}
     override fun musicFromLink() {}
     override fun setAlwaysRemoveMusic(on: Boolean) {}
-    override fun fileOptions(uri: Uri, mime: String, title: String) {}
+    override fun fileOptions(uri: Uri?, mime: String, title: String, extras: List<Pair<String, () -> Unit>>) {}
     override fun pickForTool(kind: String) {}
 }
 
@@ -242,6 +242,14 @@ class FullScreens {
 class DarkScreens {
     @get:Rule
     val paparazzi = Paparazzi(deviceConfig = phone.copy(nightMode = NightMode.NIGHT), theme = "Theme.Mohammel", maxPercentDifference = 100.0)
+
+    @Test
+    fun historyDark() {
+        val ui = buildUi(paparazzi)
+        ui.renderHistory(Samples.history, Samples.now)
+        ui.showTab(MainUi.Tab.HISTORY)
+        paparazzi.snapshot(ui.b.root, "9_history_dark")
+    }
 
     @Test
     fun videoDark() {

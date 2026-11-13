@@ -9,18 +9,21 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="12dp">
+        android:paddingStart="12dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="10dp">
 
+        <!-- الصورة والعنوان -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
             android:orientation="horizontal">
 
             <com.google.android.material.imageview.ShapeableImageView
                 android:id="@+id/jobThumb"
-                android:layout_width="96dp"
-                android:layout_height="54dp"
+                android:layout_width="112dp"
+                android:layout_height="63dp"
                 android:background="@color/chip"
                 android:contentDescription="@null"
                 android:scaleType="centerCrop"
@@ -38,24 +41,42 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
+                    android:lineSpacingMultiplier="1.05"
                     android:maxLines="2"
                     android:textColor="@color/text"
                     android:textSize="15sp"
                     android:textStyle="bold" />
 
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/jobLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/badge_bg"
+                        android:maxLines="1"
+                        android:paddingStart="8dp"
+                        android:paddingTop="1dp"
+                        android:paddingEnd="8dp"
+                        android:paddingBottom="1dp"
+                        android:textColor="@color/accent"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
                 <TextView
-                    android:id="@+id/jobLabel"
-                    android:layout_width="wrap_content"
+                    android:id="@+id/jobMeta"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:background="@drawable/badge_bg"
-                    android:paddingStart="8dp"
-                    android:paddingTop="1dp"
-                    android:paddingEnd="8dp"
-                    android:paddingBottom="1dp"
-                    android:textColor="@color/accent"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
+                    android:maxLines="2"
+                    android:textColor="@color/muted"
+                    android:textSize="12.5sp" />
             </LinearLayout>
         </LinearLayout>
 
@@ -69,27 +90,13 @@
             android:max="100"
             android:progressDrawable="@drawable/progress_track" />
 
+        <!-- الأزرار -->
         <LinearLayout
+            android:id="@+id/jobActions"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/jobMeta"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textColor="@color/muted"
-                android:textSize="13sp" />
-
-            <LinearLayout
-                android:id="@+id/jobActions"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal" />
-        </LinearLayout>
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical|end"
+            android:orientation="horizontal" />
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>
