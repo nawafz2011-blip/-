@@ -393,8 +393,56 @@ class MainActivity : AppCompatActivity(), UiActions {
         Azl.send(this, url)
     }
 
+    // ------------------------------------------------------------ التحديث داخل التطبيق
+    private var updateApk: java.io.File? = null
+    private var updating = false
+
+    /** لما يرجع المستخدم من شاشة "السماح بالتثبيت". */
+    private val installPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        val apk = updateApk ?: return@registerForActivityResult
+        if (UpdateChecker.canInstall(this)) UpdateChecker.install(this, apk)
+        else b.updateBanner.text = "اسمح لـ «محمّل» بتثبيت التحديثات، ثم اضغط هنا"
+    }
+
     override fun openUpdate() {
-        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(UpdateChecker.DOWNLOAD_URL)))
+        updateApk?.let { apk ->
+            // التحديث محمّل من قبل: نفتح التثبيت على طول
+            installOrAsk(apk)
+            return
+        }
+        if (updating) return
+        updating = true
+        b.updateBanner.isEnabled = false
+        b.updateBanner.text = "جارٍ تحميل التحديث…"
+        lifecycleScope.launch {
+            try {
+                val apk = UpdateChecker.download(this@MainActivity) { p ->
+                    b.updateBanner.text = "جارٍ تحميل التحديث… $p%"
+                }
+                updateApk = apk
+                b.updateBanner.text = "التحديث جاهز، اضغط للتثبيت"
+                installOrAsk(apk)
+            } catch (t: Throwable) {
+                if (t is CancellationException) throw t
+                b.updateBanner.text = "ما قدرنا نحمّل التحديث، اضغط للمحاولة مرة ثانية"
+            } finally {
+                updating = false
+                b.updateBanner.isEnabled = true
+            }
+        }
+    }
+
+    private fun installOrAsk(apk: java.io.File) {
+        if (UpdateChecker.canInstall(this)) {
+            UpdateChecker.install(this, apk)
+            return
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle("خطوة وحدة بس")
+            .setMessage("عشان التحديث يتثبّت من داخل التطبيق، اسمح لـ «محمّل» بتثبيت التطبيقات. تحتاجها أول مرة بس.")
+            .setPositiveButton("السماح") { _, _ -> installPermission.launch(UpdateChecker.permissionIntent(this)) }
+            .setNegativeButton("لاحقًا", null)
+            .show()
     }
 
     private fun hideKeyboard() {

@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <external-path name="external" path="." />
+    <!-- ملف التحديث اللي يتحمّل داخل التطبيق -->
+    <cache-path name="updates" path="updates/" />
 </paths>

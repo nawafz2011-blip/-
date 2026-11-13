@@ -67,7 +67,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="فيه نسخة جديدة من التطبيق، اضغط للتحديث"
+                    android:text="فيه تحديث جديد، اضغط هنا للتحديث"
                     android:visibility="gone"
                     app:icon="@drawable/ic_download"
                     app:iconGravity="textStart" />
